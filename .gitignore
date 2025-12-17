@@ -1,0 +1,26 @@
+# Environment files
+# .env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Docker volumes
+data/
+cache/
+uploads/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# Local folders
+shared/
+
+# --- GuardPrompt anonymizer sensitive files ---
+anonymizer/confirmation_token.txt
+anonymizer/license_fail_count.txt
+anonymizer/openwebui_token.txt
+anonymizer/machine_key.txt

@@ -1,0 +1,35 @@
+use_default_settings: true
+
+server:
+  secret_key: "ultrasecretkey"
+  limiter: false
+  image_proxy: true
+  port: 8080
+  bind_address: "0.0.0.0"
+
+ui:
+  static_use_hash: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "lt"
+  formats:
+    - html
+    - json
+
+languages:
+  - lt
+
+engines:
+  - name: yacy images
+    disabled: true
+  - name: ahmia
+    disabled: true
+  - name: torch
+    disabled: true
+  - name: radio browser
+    disabled: true
+
+botdetection:
+  enabled: false

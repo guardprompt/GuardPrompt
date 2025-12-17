@@ -1,0 +1,316 @@
+services:
+  open-webui-dk:
+    # image: ghcr.io/open-webui/open-webui:main  
+    image: ghcr.io/open-webui/open-webui:cuda   
+    container_name: open-webui-dk
+    restart: unless-stopped
+    expose:
+      - 8080
+    environment:
+      # ✅ PostgreSQL (centrinė DB)
+      - DATABASE_URL=postgresql://guardprompt:guardprompt@postgres:5432/guardprompt
+      # ❌ Redis nenaudojam
+      # ✅ RAG (Qdrant)
+      - QDRANT_URI=http://qdrant:6333
+      - VECTOR_DB=qdrant                # 👈 BŪTINA
+      - WEBUI_SECRET_KEY=supersecretkey
+      - DISABLE_TELEMETRY=true
+      - WORKERS=4                     # numatytas: 1
+      - THREADS=2                     # padidina Uvicorn async apdorojimą
+      - CACHE_ENABLED=true
+      - CACHE_TTL=900                 # cache 15 min.
+      - DISABLE_TELEMETRY=true
+      - KEEP_ALIVE_TIMEOUT=30
+      - EMBEDDING_CACHE_ENABLED=true
+      # --- GPU aktyvavimas ---
+      - TORCH_CUDA_AVAILABLE=true
+      - CUDA_VISIBLE_DEVICES=0
+      - TRANSFORMERS_CACHE=/app/cache
+      # --- Embeddings / Reranker ---
+      # - WEBUI_URL=https://chat.yourdomain.com
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ./cache:/app/cache
+      - ./xml_watcher:/app/backend/open_webui/xml_watcher      
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    depends_on:
+      - postgres
+      - qdrant
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  uploads-cleaner:
+    image: alpine:3.19
+    container_name: uploads-cleaner
+    restart: always
+    volumes:
+      - open-webui-data:/app/backend/data
+    command: >
+      sh -c "
+        while true; do
+          echo '[Cleaner] 🧹 Cleaning up /uploads directory (files older than 7 days)...';
+          find /app/backend/data/uploads -type f -mtime +7 -print -delete;
+          sleep 86400;
+        done
+      "
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+  anonymizer:
+    build:
+      context: ./anonymizer
+    container_name: anonymizer
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app:/app/pyarmor_runtime_007592
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./anonymizer:/app         
+      - ./shared:/data
+      - ./pyarmor_runtime_007592:/app/pyarmor_runtime_007592
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+  guardproxy:
+    build:
+      context: ./guardproxy
+    container_name: guardproxy
+    environment:
+      - PYTHONPATH=/app:/app/pyarmor_runtime_007592
+    restart: always
+    ports:
+      - "9099:80"     # Išorinis portalas (Nginx)
+      - "8010:8010"   # vidinis API (Uvicorn)
+    volumes:
+      - ./guardproxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./guardproxy/anon-router.py:/app/anon-router.py
+      - ./pyarmor_runtime_007592:/app/pyarmor_runtime_007592
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    # ports:
+    # - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER_ENV}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_ENV}
+      - POSTGRES_DB=${POSTGRES_DB_ENV}
+      - PGSTATSTATEMENTS_TRACK=none          # išjungia query statistikos rinkimą
+      - TRACK_ACTIVITY_QUERY_SIZE=0          # išjungia aktyvumo log'ą
+      - LOG_CONNECTIONS=off
+      - LOG_DISCONNECTIONS=off
+      # greitaveika
+      - MAX_CONNECTIONS=200
+      - SHARED_BUFFERS=256MB
+      - WORK_MEM=16MB
+      - MAINTENANCE_WORK_MEM=128MB
+      - EFFECTIVE_CACHE_SIZE=1GB
+      - RANDOM_PAGE_COST=1.1
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    environment:
+      # 🔹 Logai ir telemetrija
+      - QDRANT__LOG_LEVEL=INFO
+      - QDRANT__TELEMETRY_DISABLED=true
+      # 🔹 Saugykla (SSD ir RAM balansas)
+      - QDRANT__STORAGE__ON_DISK_PAYLOAD=true
+      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=8
+      - QDRANT__STORAGE__PERFORMANCE__OPTIMIZE_ON_START=true
+      - QDRANT__STORAGE__OPTIMIZERS__VACUUM_MIN_VECTOR_NUMBER=10000
+      - QDRANT__STORAGE__OPTIMIZERS__DELETED_THRESHOLD=0.2
+      - QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD_KB=20000
+      - QDRANT__STORAGE__OPTIMIZERS__INDEXING_THRESHOLD_KB=20000
+      # 🔹 WAL (Write-Ahead Log) – SSD optimizacija
+      - QDRANT__STORAGE__WAL__WAL_CAPACITY_MB=512
+      - QDRANT__STORAGE__WAL__WAL_SEGMENT_SIZE_MB=64
+      - QDRANT__STORAGE__WAL__FLUSH_INTERVAL_MS=500
+
+      # 🔹 Recovery režimas (apsauga nuo sugadintų duomenų)
+      - QDRANT_ALLOW_RECOVERY_MODE=true
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower-dk:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower-dk
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=21600
+      - WATCHTOWER_INCLUDE_STOPPED=false
+    #  - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_DISABLE_SELF_UPDATE=true
+      - DISABLE_TELEMETRY=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+  # netdata:
+  #   image: netdata/netdata:latest
+  #   container_name: netdata
+  #   restart: unless-stopped
+  #   ports:
+  #     - "19999:19999"
+  #   environment:
+  #     - NETDATA_DBENGINE_RETENTION=1h    # 👈 laikyti tik 30 dienu duomenis
+  #   volumes:
+  #     - netdataconfig:/etc/netdata
+  #     - netdatalib:/var/lib/netdata
+  #     - /:/host:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   cap_add:
+  #     - SYS_PTRACE
+  #   security_opt:
+  #     - apparmor=unconfined
+  #   networks:
+  #     - openwebui_net
+ 
+  docling-serve:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ghcr.io/docling-project/docling-serve-cu126
+
+        USER root
+
+        # 🔧 Sutvarkom CentOS Stream 9 repozitorijas (mirrorlist → baseurl, mirror.centos.org → vault.centos.org)
+        RUN sed -i 's|mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/*.repo && \
+            sed -i 's|#baseurl=|baseurl=|g' /etc/yum.repos.d/*.repo && \
+            sed -i 's|https://mirror.centos.org|http://vault.centos.org|g' /etc/yum.repos.d/*.repo
+
+        # 🔧 Išjungiame SSL verify, nes oficialių mirror'ų cert'ai pasenę
+        RUN echo "sslverify=False" >> /etc/yum.conf
+
+        # 🔠 Diegiam Tesseract + LT kalbos paketą
+        RUN dnf clean all && \
+            dnf install -y tesseract tesseract-langpack-lit && \
+            dnf clean all
+
+        RUN pip install fastapi uvicorn pillow pymupdf img2pdf beautifulsoup4 lxml requests charset-normalizer chardet
+
+        WORKDIR /app
+        COPY docling_api.py /app/docling_api.py
+
+        CMD ["uvicorn", "docling_api:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+        
+        USER 1001
+
+    container_name: docling-serve
+    restart: unless-stopped
+    ports:
+      - "8777:8001"
+    # ✅ GPU režimas
+    runtime: nvidia
+    environment:
+      # DOCLING SERVE – serverio režimas
+      DOCLING_OCR_ENGINE: "tesseract"
+      TESSDATA_PREFIX: "/usr/share/tesseract/tessdata"
+      LM_STUDIO_ENABLED: "true"   # arba "false"
+      LM_STUDIO_URL: "http://host.docker.internal:1234/v1/chat/completions"
+      LM_MODEL: "google/gemma-3-4b"
+      DOCLING_DOCUMENT_TIMEOUT: "300"
+    volumes:
+      - ./docling_api.py:/app/docling_api.py   
+      - ./pyarmor_runtime_007592:/app/pyarmor_runtime_007592  
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    environment:
+      - BASE_URL=http://localhost:8089/
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml
+      - searxng-cache:/var/cache/searxng
+    ports:
+      - "8089:8080"
+    networks:
+      - openwebui_net
+    cap_drop:
+      - NET_RAW
+    env_file:
+      - .env
+
+networks:
+  openwebui_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  qdrant_storage:
+  open-webui-data:
+  searxng-cache:
+  cache-data:
+  # netdataconfig:
+  # netdatalib:
