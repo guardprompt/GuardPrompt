@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "GuardPrompt AI",
+  "version": "0.1.0",
+  "description": "AI asistentas naršyklėje: klausk ar redaguok puslapio tekstą. Eina per jūsų on-prem OpenWebUI (anonimizuojama prieš išorinį LLM).",
+  "permissions": ["sidePanel", "activeTab", "scripting", "storage", "tabs", "webNavigation", "debugger", "clipboardRead"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "GuardPrompt AI" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "storage": { "managed_schema": "managed_schema.json" }
+}
