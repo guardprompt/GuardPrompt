@@ -1,0 +1,6 @@
+{
+  "_comment": "Public (non-secret) config for msauth.html. The real msauth.config.json is generated per-deployment from .env (M365_CLIENT_ID / M365_TENANT_ID / M365_GRAPH_SCOPES) and is gitignored. clientId + tenantId are NOT secrets.",
+  "clientId": "REPLACE_WITH_CLIENT_ID",
+  "tenantId": "REPLACE_WITH_TENANT_ID",
+  "scopes": "User.Read Mail.Read Files.Read.All Sites.Read.All"
+}

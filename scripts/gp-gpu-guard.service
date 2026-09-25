@@ -1,0 +1,13 @@
+[Unit]
+Description=GuardPrompt GPU VRAM watchdog (recycle open-webui-dk when VRAM low)
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+# /bin/bash (not +x on the script) — Windows dev checkouts drop the exec bit.
+ExecStart=/bin/bash /srv/dockerapp/GuardPrompt/scripts/gp-gpu-guard.sh
+# Tune without editing the script:
+# Environment=GP_GPU_MIN_FREE_MB=2500
+# Environment=GP_GPU_GUARD_COOLDOWN_MIN=30
+# Environment=GP_GPU_GUARD_OWUI_MIN_MB=4000

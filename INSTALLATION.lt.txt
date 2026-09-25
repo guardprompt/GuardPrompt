@@ -1,0 +1,175 @@
+Kalba / Language: Lietuvių | English -> INSTALLATION.txt
+
+PASTABA: Šis plain-text vadovas — legacy kopija. Aktualus, palaikomas diegimo
+vadovas yra INSTALLATION.lt.md (jis apima ir Claude proxy, Zabbix stebėseną bei
+dabartinius servisų portus). Naudok Markdown versiją.
+
+================================================================================
+
+                                GuardPrompt
+
+                        Diegimo ir naudojimo vadovas
+
+================================================================================
+
+Šis dokumentas paaiškina, kaip lokaliai įdiegti, sukonfigūruoti ir paleisti
+GuardPrompt. Tinka tiek CPU, tiek GPU aplinkoms.
+
+Architektūra (visi konteineriai, portai, priklausomybės): žr. ARCHITECTURE.lt.md
+
+GuardPrompt teikia:
+- DI dokumentų asistentą (OpenWebUI)
+- On-prem anonimizavimo variklį (Anonymizer)
+- gliner (on-prem NER GDPR 9/10 str. kategorijoms; kviečia Anonymizer)
+- Dokumentų ingestijos ir OCR liniją (Docling)
+- RAG žinių bazę (Qdrant)
+- Vidinį API vartų tarpininką (GuardProxy)
+- KB Admin pultą (kb-admin) — Confluence/Jira/SharePoint į OpenWebUI žinių bazes
+- LLM backend — per OpenWebUI (OpenRouter / OpenAI-suderinamas API); lokalus vision
+  modelis per Ollama (Ubuntu) arba LM Studio (Windows, pasirinktinai)
+
+--------------------------------------------------------------------------------
+1. SISTEMOS REIKALAVIMAI
+--------------------------------------------------------------------------------
+
+Operacinė sistema:
+  - Windows 10/11 (Docker Desktop), arba
+  - Linux serveris (rekomenduojama Ubuntu 22.04)
+
+Aparatūra (GPU versija):
+  - NVIDIA GPU su CUDA palaikymu (rekomenduojama 6GB+ VRAM)
+  - Atnaujintos NVIDIA tvarkyklės + CUDA runtime
+
+Disko vieta: min. 100 GB laisvos.
+
+--------------------------------------------------------------------------------
+2. PROGRAMINĖS ĮRANGOS REIKALAVIMAI
+--------------------------------------------------------------------------------
+
+1. Docker Desktop — https://www.docker.com/products/docker-desktop/
+   Įjunkite "Use WSL2 backend".
+2. LLM backend (OpenRouter / Ollama / LM Studio — žr. 7 skyrių).
+
+--------------------------------------------------------------------------------
+3. KODO GAVIMAS
+--------------------------------------------------------------------------------
+
+Rekomenduojama - klonuoti repozitoriją:
+
+   Linux:
+     git clone https://github.com/guardprompt/GuardPrompt.git /opt/guardprompt
+     cd /opt/guardprompt
+
+   Windows (PowerShell):
+     git clone https://github.com/guardprompt/GuardPrompt.git C:\GuardPrompt
+     cd C:\GuardPrompt
+
+Alternatyva - jei gavote ZIP paketą, išpakuokite jį į aplanką, pvz.
+C:\GuardPrompt arba /opt/guardprompt.
+
+Aplanke turi būti: docker-compose.yml, install.sh / install.ps1 (diegimo
+skriptas), guardproxy/, anonymizer/, gliner/, searxng/, docling_api.py,
+.env.example (šablonas).
+
+GREIČIAUSIAS KELIAS - paleiskite diegimo skriptą (atlieka 4 ir 5 skyrius):
+
+   Linux:     chmod +x install.sh && ./install.sh
+   Windows:   .\install.ps1
+
+Skriptas sugeneruoja .env su naujais slaptažodžiais, sukuria mašinos licencijos
+raktą, subuildina ir paleidžia visus konteinerius bei įdiegia GuardPrompt
+OpenWebUI funkciją. Pusiaukelėje paprašo susikurti administratoriaus paskyrą
+http://localhost:8080 (pirmoji registracija tampa administratoriumi).
+
+ATNAUJINIMAS VĖLIAU - leidimai publikuojami force-push būdu, todėl "git pull"
+neveiks. Atstatykite į publikuotą būseną:
+
+   git fetch origin && git reset --hard origin/main
+   docker compose up -d --build
+
+(--build svarbu: be jo liktų seni image'ai. .env, machine_key.txt ir prekės
+ženklo failai yra gitignore'inti, tad atstatymas jų nepaliečia.)
+
+--------------------------------------------------------------------------------
+4. APLINKOS PARUOŠIMAS (.env FAILAS)
+--------------------------------------------------------------------------------
+
+Paleiskite diegimo skriptą, kuris sugeneruoja .env su unikaliais slaptažodžiais:
+  - Linux:   bash install.sh
+  - Windows: .\install.ps1
+
+Išoriniai raktai/ID (OpenWebUI API, OpenRouter, Confluence, Jira, SharePoint,
+LDAP, mašinos raktas): žr. CREDENTIALS.md
+GDPR ir ES DI akto atitiktis (straipsnis po straipsnio): žr. COMPLIANCE.lt.md
+
+--------------------------------------------------------------------------------
+5. SISTEMOS PALEIDIMAS
+--------------------------------------------------------------------------------
+
+   docker compose up -d
+
+Bus paleista: GuardProxy, OpenWebUI, Anonymizer, gliner, Docling, Qdrant,
+PostgreSQL, SearXNG, kb-admin, Ollama (Ubuntu), uploads-cleaner.
+
+Patikrinti konteinerius:  docker ps
+
+--------------------------------------------------------------------------------
+6. PRIEIGA PRIE SISTEMOS
+--------------------------------------------------------------------------------
+
+   http://localhost:9099      -> GuardProxy (pagrindinis įėjimas)
+   http://localhost:9099/ui   -> OpenWebUI sąsaja
+   http://localhost:8005      -> Anonymizer API
+   http://localhost:8777      -> Docling OCR serveris
+
+--------------------------------------------------------------------------------
+7. LLM BACKEND NUSTATYMAS (OpenRouter / Ollama / LM Studio)
+--------------------------------------------------------------------------------
+
+Chat LLM (numatytoji): konfigūruokite OpenWebUI viduje (Admin > Settings >
+Connections) — OpenRouter arba OpenAI-suderinamas API. Vaizdų aprašymai naudoja
+lokalų vision modelį: Ubuntu — Ollama in-stack (install.sh parsisiunčia modelį);
+Windows — galima LM Studio:
+  1. Paleiskite LM Studio
+  2. Įkelkite modelį (pvz. google/gemma-3-4b)
+  3. Įjunkite "Local Server" režimą: http://localhost:1234/v1/chat/completions
+Reikšmės nustatomos .env (LM_STUDIO_URL, LM_MODEL).
+
+--------------------------------------------------------------------------------
+8. BANDOMOSIOS LICENCIJOS AKTYVAVIMAS
+--------------------------------------------------------------------------------
+
+Atidarykite:  http://localhost:8005/api/reginfo
+Pamatysite Host ID (auto), Host IP (auto), Admin Email/Pass (įvesti), Users Count.
+Nusiųskite šią info: info@guardprompt.lt arba Telegram @GuardPrompt.
+Po aktyvavimo — 30 dienų bandomasis laikotarpis. Detaliau: LICENSING_INFO.lt.md
+
+--------------------------------------------------------------------------------
+9. SUSTABDYMAS / PALEIDIMAS IŠ NAUJO
+--------------------------------------------------------------------------------
+
+Sustabdyti:        docker compose down
+Paleisti iš naujo: docker compose restart
+Atnaujinti images (versijos pinuotos): pakeiskite tag'ą docker-compose.yml, tada
+   docker compose pull && docker compose up -d --remove-orphans
+
+--------------------------------------------------------------------------------
+10. TRIKČIŲ ŠALINIMAS
+--------------------------------------------------------------------------------
+
+1. Portai užimti — keiskite portus docker-compose.yml.
+2. GPU neaptiktas — įdiekite NVIDIA tvarkykles; Docker Desktop > Resources > GPU.
+3. OpenWebUI nepasileidžia — ištrinkite ./cache/.
+4. Prasta OCR kokybė — patikrinkite Tesseract / Docling-Serve GPU.
+5. Licencija nepriimama — patikrinkite laikrodį ir .env reikšmes.
+
+--------------------------------------------------------------------------------
+11. KONTAKTAI IR PALAIKYMAS
+--------------------------------------------------------------------------------
+
+  El. paštas: info@guardprompt.lt
+  Telegram:   @GuardPrompt
+
+================================================================================
+                    Ačiū, kad pasirinkote GuardPrompt!
+================================================================================

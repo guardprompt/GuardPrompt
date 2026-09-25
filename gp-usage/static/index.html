@@ -1,0 +1,301 @@
+<!doctype html><html lang="lt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proxy naudojimas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--ground:#eef2f6;--surface:#fff;--surface-2:#f6f9fb;--ink:#132330;--muted:#5c6f7e;--faint:#8698a6;--border:#dde5ec;--border-strong:#c6d2dc;--accent:#0e7c86;--accent-bright:#12a5b0;--accent-soft:#dcf0f2;--ok:#2e8257;--ok-soft:#dcefe4;--warn:#b3720f;--warn-soft:#f7ecd6;--crit:#bd3b2f;--crit-soft:#f7dfdc;--shadow:0 1px 2px rgba(19,35,48,.06),0 3px 8px rgba(19,35,48,.05)}
+:root:not([data-theme="light"]){@media (prefers-color-scheme:dark){--ground:#0c141d;--surface:#111e29;--surface-2:#0f1a24;--ink:#e7eef4;--muted:#93a5b3;--faint:#6b7d8b;--border:#22323f;--border-strong:#2d4150;--accent:#28b7c3;--accent-bright:#3ccfda;--accent-soft:#13313a;--ok:#43b47d;--ok-soft:#122e22;--warn:#d99a3c;--warn-soft:#332713;--crit:#e0645a;--crit-soft:#331b19;--shadow:0 1px 2px rgba(0,0,0,.3),0 3px 10px rgba(0,0,0,.28)}}
+:root[data-theme="dark"]{--ground:#0c141d;--surface:#111e29;--surface-2:#0f1a24;--ink:#e7eef4;--muted:#93a5b3;--faint:#6b7d8b;--border:#22323f;--border-strong:#2d4150;--accent:#28b7c3;--accent-bright:#3ccfda;--accent-soft:#13313a;--ok:#43b47d;--ok-soft:#122e22;--warn:#d99a3c;--warn-soft:#332713;--crit:#e0645a;--crit-soft:#331b19;--shadow:0 1px 2px rgba(0,0,0,.3),0 3px 10px rgba(0,0,0,.28)}
+*{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600}.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}.topbar .wrap{display:flex;align-items:center;gap:14px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.2px}.shield{color:var(--accent);display:grid;place-items:center}.brand small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
+.spacer{flex:1}.session{display:flex;align-items:center;gap:9px;padding:5px 8px 5px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface-2)}.session .lock{color:var(--ok)}.session .who{font-weight:500;font-size:13px}.session .role{font-size:11px;color:var(--muted)}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{color:var(--ink);border-color:var(--border-strong)}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:24px 0 14px;flex-wrap:wrap}.pagehead h1{font-size:23px}.pagehead .sub{color:var(--muted);font-size:13px;margin-top:3px}
+.filterbar{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.fgroup{display:flex;flex-direction:column;gap:5px}.fgroup .cap{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;padding-left:2px}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:2px}.seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:500;padding:6px 11px;border-radius:7px;cursor:pointer}.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.fsel{position:relative;display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:0 30px 0 11px;height:34px}.fsel:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.fsel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;font-weight:500;padding:7px 0;cursor:pointer;min-width:120px;outline:none;max-width:240px}
+.fsel .chev{position:absolute;right:10px;color:var(--muted);pointer-events:none;display:flex}.fspacer{flex:1}
+.active-note{align-self:flex-end;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}.active-note b{color:var(--accent);font-weight:600}.freset{align-self:flex-end}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow)}.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}.kpi .value{font-size:25px;font-weight:600;margin-top:8px;letter-spacing:-.5px;line-height:1;font-variant-numeric:tabular-nums}.kpi .value small{font-size:14px;color:var(--muted);font-weight:500}.kpi .sub2{font-size:12px;margin-top:7px;color:var(--muted)}.kpi.accent{background:linear-gradient(180deg,var(--accent-soft),var(--surface))}.kpi.good .value{color:var(--ok)}
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-bottom:14px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}.panel-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}.panel-hd h2{font-size:14px}.panel-hd .hint{font-size:11.5px;color:var(--faint)}.panel-bd{padding:16px}
+.chart{width:100%;height:200px;display:block}.chart text{fill:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:10px}.grid-line{stroke:var(--border);stroke-width:1}
+.legend{display:flex;gap:16px;padding:2px 16px 14px;flex-wrap:wrap}.legend span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+.mbars{display:flex;flex-direction:column;gap:15px}.mbar .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px}.mbar .name{font-weight:500;font-size:13px;display:flex;align-items:center;gap:7px;min-width:0}.mbar .name .mn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mbar .val{font-size:12px;color:var(--muted);white-space:nowrap}.track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.tag{font-size:10.5px;padding:1px 7px;border-radius:99px;font-weight:600;flex:none}
+.empty{color:var(--faint);font-size:13px;text-align:center;padding:26px 10px}
+table{width:100%;border-collapse:collapse;font-size:13px}thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:9px 16px;border-bottom:1px solid var(--border);white-space:nowrap}thead th.r,tbody td.r{text-align:right}tbody td{padding:11px 16px;border-bottom:1px solid var(--border)}tbody tr:last-child td{border-bottom:0}
+.u{display:flex;align-items:center;gap:9px}.u .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff;flex:none}.u .em{font-size:11.5px;color:var(--muted)}
+.bar-cell{display:flex;align-items:center;gap:9px}.bar-cell .mini{flex:1;height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;min-width:40px}.bar-cell .mini i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.pill{font-size:11px;padding:2px 9px;border-radius:99px;font-weight:600;white-space:nowrap}.pill.claude{background:var(--accent-soft);color:var(--accent)}.pill.openai{background:var(--ok-soft);color:var(--ok)}.pill.other{background:var(--surface-2);color:var(--muted);border:1px solid var(--border)}.spans{color:var(--warn);font-weight:600}
+.review .panel-bd{padding:0}.rev-row{cursor:pointer}.rev-row:hover{background:var(--surface-2)}.rev-row .caret{color:var(--faint);transition:transform .15s;display:inline-flex}.rev-row[aria-expanded="true"] .caret{transform:rotate(90deg);color:var(--accent)}
+.rev-inner{padding:16px 18px;background:var(--surface-2);border-bottom:1px solid var(--border)}.rev-meta{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:11px;font-size:12px;color:var(--muted)}.rev-meta b{color:var(--ink);font-weight:600}.rev-note{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ok);margin-bottom:10px}
+.rev-content{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:13px 15px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.7;color:var(--ink);white-space:pre-wrap;overflow-x:auto}.tok{background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 4px;font-weight:600}.tok.h{background:var(--warn-soft);color:var(--warn)}
+.foot{color:var(--faint);font-size:11.5px;text-align:center;padding:22px 0 30px}.foot code{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+.loading{color:var(--faint);text-align:center;padding:40px}
+.revctl{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.revsearch{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:0 11px;height:32px;color:var(--faint)}
+.revsearch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.revsearch input{border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;outline:none;width:250px;max-width:44vw}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 16px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.pager button{border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:7px;padding:5px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.pager button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pager button:disabled{opacity:.4;cursor:default}
+.pager .info{font-variant-numeric:tabular-nums}
+#revpanel{scroll-margin-top:72px}
+.idhint{font-size:12px;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--border)}
+.idtable td{vertical-align:top}
+.idtable td:first-child{white-space:nowrap}
+.idtable td.models{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Pin the name/save column to the right so the button is ALWAYS visible, even if the
+   table scrolls horizontally. */
+.idtable th:last-child,.idtable td:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-8px 0 10px -8px rgba(16,36,47,.18)}
+.idtable thead th:last-child{background:var(--surface-2)}
+.idsample{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--dim);max-width:260px;min-width:180px;white-space:normal;line-height:1.45}
+.idname{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+.idname input{border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:7px;padding:6px 9px;font:inherit;font-size:12.5px;width:150px;min-width:120px;outline:none}
+.idname input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.idsave{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:6px 11px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;flex:none}
+.idsave:hover{filter:brightness(1.07)}
+.idsave:disabled{opacity:.5}
+.idsaved{color:var(--ok);font-size:12px;min-width:14px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.fspacer{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div class="topbar"><div class="wrap">
+  <div class="brand"><span class="shield"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2.5l7 2.6v5.4c0 4.6-3 8.3-7 9.6-4-1.3-7-5-7-9.6V5.1l7-2.6z" fill="currentColor" opacity=".13"/><path d="M12 2.5l7 2.6v5.4c0 4.6-3 8.3-7 9.6-4-1.3-7-5-7-9.6V5.1l7-2.6z" stroke="currentColor" stroke-width="1.4"/><path d="M8.7 12l2.2 2.2 4.4-4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div>GuardPrompt<small>Proxy naudojimas</small></div></div>
+  <div class="spacer"></div>
+  <button class="btn" id="theme">Tema</button>
+  <div class="session"><span class="lock"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V8a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.6"/></svg></span><div><div class="who">__WHO__</div><div class="role">Administratorius</div></div><div class="avatar" id="av">A</div></div>
+  <a class="btn" href="logout">Atsijungti</a>
+</div></div>
+<div class="wrap">
+  <div class="pagehead"><div><h1>Proxy naudojimas</h1><div class="sub">Kas, kiek ir kaip naudoja anonimizuojančius AI proxy · šaltinis <span class="mono">gp_audit</span></div></div></div>
+  <div class="filterbar">
+    <div class="fgroup"><span class="cap">Laikotarpis</span><div class="seg" id="f-period" role="group"><button data-d="1">24 val.</button><button data-d="7">7 d.</button><button data-d="30" aria-pressed="true">30 d.</button><button data-d="90">90 d.</button></div></div>
+    <div class="fgroup"><span class="cap">Proxy</span><div class="fsel"><select id="f-proxy"></select><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div></div>
+    <div class="fgroup"><span class="cap">Modelis</span><div class="fsel"><select id="f-model"></select><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div></div>
+    <div class="fgroup"><span class="cap">Vartotojas</span><div class="fsel"><select id="f-user"></select><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div></div>
+    <div class="fspacer"></div><div class="active-note freset" id="f-summary"></div><button class="btn freset" id="f-reset">Išvalyti</button>
+  </div>
+  <div class="kpis" id="kpis"><div class="loading">Kraunama…</div></div>
+  <div class="grid">
+    <div class="panel"><div class="panel-hd"><h2>Užklausos per dieną</h2><span class="hint" id="trend-hint"></span></div><svg class="chart" viewBox="0 0 620 200" preserveAspectRatio="none" id="trend"></svg><div class="legend" id="legend"></div></div>
+    <div class="panel"><div class="panel-hd"><h2>Pagal modelį</h2><span class="hint">užklausos · tokenai · €</span></div><div class="panel-bd mbars" id="models"></div></div>
+  </div>
+  <div class="panel" style="margin-bottom:14px"><div class="panel-hd"><h2>Top vartotojai</h2><span class="hint">rikiuota pagal užklausas</span></div><div style="overflow-x:auto"><table><thead><tr><th>Vartotojas</th><th class="r">Užklausos</th><th style="width:140px">Dalis</th><th class="r">Tokenai</th><th class="r">Kaštai</th><th class="r">PII</th><th class="r">Paskutinė</th></tr></thead><tbody id="topusers"></tbody></table></div></div>
+  <div class="panel review" id="revpanel">
+    <div class="panel-hd"><h2>Turinio peržiūra</h2>
+      <div class="revctl">
+        <div class="revsearch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.7"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><input id="rev-q" placeholder="Ieškoti turinyje, modelyje, IP, paskyroje…"></div>
+        <div class="fsel" style="height:32px"><select id="rev-size"><option value="10">10 / psl.</option><option value="25">25 / psl.</option><option value="50">50 / psl.</option><option value="100">100 / psl.</option></select><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div>
+      </div>
+    </div>
+    <div class="panel-bd"><div style="overflow-x:auto"><table><thead><tr><th style="width:34px"></th><th>Laikas</th><th>Vartotojas</th><th>Proxy / modelis</th><th class="r">Dydis</th><th class="r">PII</th><th>IP</th></tr></thead><tbody id="review"></tbody></table></div></div>
+    <div class="pager" id="rev-pager"></div>
+  </div>
+  <div class="panel review" style="margin-top:14px">
+    <div class="panel-hd"><h2>Vartotojų identifikavimas ir žemėlapis</h2>
+      <div class="revctl">
+        <div class="revsearch" style="width:auto"><input id="cap-name" placeholder="Naujo vartotojo vardas / el. paštas" style="width:210px"></div>
+        <button class="idsave" id="cap-start">Prijungti naują</button>
+        <span id="cap-status" class="em" style="font-size:12px"></span>
+      </div>
+    </div>
+    <div class="idhint">IP rotuojasi (netinka atpažinimui). Atpažink pagal <b>turinio pavyzdį</b> (projektų/repo keliai) ar modelius, įrašyk vardą/el. paštą, išsaugok (DB, be perdiegimo). <b>Prijungti naują:</b> įrašyk vardą, spausk mygtuką ir paprašyk žmogaus paleisti Claude Code — naujas account_uuid bus sulinkintas automatiškai.</div>
+    <div class="panel-bd"><div style="overflow-x:auto"><table class="idtable">
+      <thead><tr><th>account_uuid</th><th class="r">Užklausos</th><th class="r">Paskutinė</th><th>Modeliai</th><th>Paskut. IP</th><th>Turinio pavyzdys</th><th>Vardas / el. paštas</th></tr></thead>
+      <tbody id="idbody"><tr><td colspan="7"><div class="loading">Kraunama…</div></td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <div class="foot">šaltinis <code>gp_audit</code> (read-only) · kaštai apytiksliai (tokenai × OpenRouter kaina, <span id="price-status"></span>) · prieinama tik prisijungus</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+$('theme').onclick=()=>{const r=document.documentElement;const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);r.setAttribute('data-theme',dark?'light':'dark');};
+$('av').textContent=(document.querySelector('.who').textContent||'A').trim().slice(0,2).toUpperCase();
+
+const PROXY={claude:{label:'Claude',proc:'gp-claude-proxy',cls:'claude',col:'var(--accent)'},openai:{label:'OpenRouter',proc:'gp-openai-proxy',cls:'openai',col:'var(--ok)'},other:{label:'Kita',proc:'—',cls:'other',col:'var(--faint)'}};
+function proxyOf(m){m=(m||'').toLowerCase();if(m.includes('claude')||m.includes('anthropic'))return 'claude';if(m.includes('gpt')||m.includes('openai')||m.startsWith('o1')||m.startsWith('o3')||m.includes('/'))return 'openai';return 'other';}
+const AVCOL=['#0e7c86','#2e8257','#7a51c0','#b3720f','#bd3b2f','#3a6ea5','#087f8c','#9c4f2b'];
+function avColor(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return AVCOL_(h);} function AVCOL_(h){return AVCOL[h%AVCOL.length];}
+function initials(s){s=(s||'?').replace(/@.*/,'');const p=s.split(/[.\s_-]+/).filter(Boolean);return ((p[0]||'?')[0]+(p[1]||'')[0]||p[0][0]||'?').toUpperCase();}
+let UMAP={};
+function isUuid(u){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u||'');}
+function ulabel(u){if(!u||u==='(nežinomas)')return '(nežinomas)';if(UMAP[u])return UMAP[u];if(isUuid(u))return 'Claude · '+u.slice(0,8);if(u.includes('@'))return u.replace(/@.*/,'');return u;}
+function usub(u){if(UMAP[u])return isUuid(u)?('Claude · '+u.slice(0,8)):u;return isUuid(u)?('paskyra '+u):(u||'');}
+function uinit(u){const l=UMAP[u];if(l)return initials(l);return isUuid(u)?'CL':initials(u);}
+function fmt(n){return Math.round(n).toLocaleString('lt-LT');}
+function fmtTok(n){return n>=1e6?(n/1e6).toLocaleString('lt-LT',{maximumFractionDigits:2})+' mln.':n>=1e3?Math.round(n/1e3)+' k':fmt(n);}
+function eur(n){return '€'+n.toLocaleString('lt-LT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function hi(s){return esc(s).replace(/GP_[0-9a-f]{12}/g,m=>`<span class="tok">${m}</span>`).replace(/\[[A-Z_]{2,}\]/g,m=>`<span class="tok h">${m}</span>`);}
+function rel(iso){if(!iso)return '—';const s=(Date.now()-new Date(iso).getTime())/1000;if(s<90)return 'prieš '+Math.max(1,Math.round(s))+' s';if(s<5400)return 'prieš '+Math.round(s/60)+' min.';if(s<86400)return 'prieš '+Math.round(s/3600)+' val.';return 'prieš '+Math.round(s/86400)+' d.';}
+
+const state={days:30,proxy:'all',model:'all',user:'all',rev:{q:'',page:1,size:10}};
+let DATA={rows:[],prices:{},bpt:4};
+
+async function load(){
+  const r=await fetch('api/data?days=90',{credentials:'same-origin'});
+  if(r.status===401){location.href='login';return;}
+  const j=await r.json();
+  DATA.rows=j.rows;DATA.prices=j.prices||{};DATA.bpt=j.bytes_per_token||4;UMAP=j.user_map||{};
+  const ps=j.price_status||{};$('price-status').textContent=ps.ok?`${ps.count} modelių`:'kainos nepasiektos';
+  buildFilters();render();loadIdentify();
+}
+function tokensOf(bytes){return bytes/DATA.bpt;}
+function costRow(r){return tokensOf(r.bytes)*(DATA.prices[r.model]||0);}
+function ymd(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function cutoffDate(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(state.days-1));return d;}
+function cutoffYmd(){return ymd(cutoffDate());}
+function inWindow(day){return day>=cutoffYmd();}   // both are local YYYY-MM-DD strings
+function pass(r){return inWindow(r.day)&&(state.proxy==='all'||proxyOf(r.model)===state.proxy)&&(state.model==='all'||r.model===state.model)&&(state.user==='all'||r.user===state.user);}
+
+function buildFilters(){
+  const users=[...new Set(DATA.rows.map(r=>r.user))].sort();
+  const selU=$('f-user');selU.innerHTML='<option value="all">Visi vartotojai</option>'+users.map(u=>`<option value="${esc(u)}">${esc(ulabel(u))}</option>`).join('');selU.value=state.user;
+  fillProxy();fillModel();
+}
+function fillProxy(){const s=$('f-proxy');const px=[...new Set(DATA.rows.map(r=>proxyOf(r.model)))];const order=['claude','openai','other'].filter(p=>px.includes(p));s.innerHTML='<option value="all">Visi proxy</option>'+order.map(p=>`<option value="${p}">${PROXY[p].label} · ${PROXY[p].proc}</option>`).join('');s.value=state.proxy;}
+function fillModel(){const s=$('f-model');const ms=[...new Set(DATA.rows.filter(r=>state.proxy==='all'||proxyOf(r.model)===state.proxy).map(r=>r.model))].sort();s.innerHTML='<option value="all">Visi modeliai</option>'+ms.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');s.value=ms.includes(state.model)?state.model:'all';state.model=s.value;}
+
+function render(){
+  const rows=DATA.rows.filter(pass);
+  const req=rows.reduce((s,r)=>s+r.req,0),bytes=rows.reduce((s,r)=>s+r.bytes,0),spans=rows.reduce((s,r)=>s+r.spans,0);
+  const tok=tokensOf(bytes),cost=rows.reduce((s,r)=>s+costRow(r),0),users=new Set(rows.map(r=>r.user)).size;
+  $('kpis').innerHTML=[
+    ['Užklausos',fmt(req),(req/state.days).toFixed(0)+' / diena vid.'],
+    ['Aktyvūs vartotojai',fmt(users),''],
+    ['Tokenai (apytiksl.)',fmtTok(tok),''],
+  ].map(k=>`<div class="kpi"><div class="label">${k[0]}</div><div class="value">${k[1]}</div><div class="sub2">${k[2]||'&nbsp;'}</div></div>`).join('')
+   +`<div class="kpi accent"><div class="label">Kaštai (apytiksl.)</div><div class="value">${eur(cost)}</div><div class="sub2">≈ ${eur(cost/state.days)} / diena</div></div>`
+   +`<div class="kpi good"><div class="label">PII paslėpta</div><div class="value">${fmt(spans)}</div><div class="sub2">0 nutekėjo</div></div>`;
+  // chart
+  const shown=['claude','openai','other'].filter(p=>(state.proxy==='all'||state.proxy===p)&&rows.some(r=>proxyOf(r.model)===p));
+  const dates=[];const c=cutoffDate();for(let i=0;i<state.days;i++){const d=new Date(c);d.setDate(c.getDate()+i);dates.push(ymd(d));}
+  const byDay={};for(const r of rows){(byDay[r.day]=byDay[r.day]||{})[proxyOf(r.model)]=((byDay[r.day]||{})[proxyOf(r.model)]||0)+r.req;}
+  drawChart(dates,byDay,shown);
+  $('legend').innerHTML=shown.map(p=>`<span><i class="dot" style="background:${PROXY[p].col}"></i> ${PROXY[p].label} (${PROXY[p].proc})</span>`).join('');
+  $('trend-hint').textContent=state.days+' d.'+(state.proxy==='all'?' · pagal proxy':' · '+PROXY[state.proxy].label);
+  // models
+  const mm={};for(const r of rows){const o=mm[r.model]=mm[r.model]||{req:0,bytes:0,cost:0};o.req+=r.req;o.bytes+=r.bytes;o.cost+=costRow(r);}
+  const ml=Object.entries(mm).sort((a,b)=>b[1].req-a[1].req);const mmax=Math.max(1,...ml.map(x=>x[1].req));
+  $('models').innerHTML=ml.length?ml.map(([m,v])=>{const p=PROXY[proxyOf(m)];return `<div class="mbar"><div class="top"><span class="name"><span class="tag pill ${p.cls}">${p.label}</span> <span class="mn" title="${esc(m)}">${esc(m)}</span></span><span class="val num">${fmt(v.req)} · ${fmtTok(tokensOf(v.bytes))} · ${eur(v.cost)}</span></div><div class="track"><i class="fill" style="width:${(v.req/mmax*100).toFixed(0)}%;background:${p.col}"></i></div></div>`;}).join(''):'<div class="empty">Nėra duomenų pagal filtrą</div>';
+  // top users
+  const uu={};for(const r of rows){const o=uu[r.user]=uu[r.user]||{req:0,bytes:0,cost:0,spans:0,last:null,m:{}};o.req+=r.req;o.bytes+=r.bytes;o.cost+=costRow(r);o.spans+=r.spans;o.m[proxyOf(r.model)]=(o.m[proxyOf(r.model)]||0)+r.req;if(!o.last||r.last_ts>o.last)o.last=r.last_ts;}
+  const ul=Object.entries(uu).sort((a,b)=>b[1].req-a[1].req);const umax=Math.max(1,...ul.map(x=>x[1].req));
+  $('topusers').innerHTML=ul.length?ul.map(([u,v])=>{const top=Object.entries(v.m).sort((a,b)=>b[1]-a[1])[0][0];return `<tr><td><div class="u"><span class="av" style="background:${AVCOL_(hashs(u))}">${uinit(u)}</span><div><div>${esc(ulabel(u))}</div><div class="em">${esc(usub(u))}</div></div></div></td><td class="r num">${fmt(v.req)}</td><td><div class="bar-cell"><span class="mini"><i style="width:${(v.req/umax*100).toFixed(0)}%;background:${PROXY[top].col}"></i></span></div></td><td class="r num">${fmtTok(tokensOf(v.bytes))}</td><td class="r num">${eur(v.cost)}</td><td class="r num spans">${fmt(v.spans)}</td><td class="r em">${rel(v.last)}</td></tr>`;}).join(''):'<tr><td colspan="7"><div class="empty">Nėra duomenų pagal filtrą</div></td></tr>';
+  // summary
+  const bits=[];if(state.proxy!=='all')bits.push(PROXY[state.proxy].label);if(state.model!=='all')bits.push(state.model);if(state.user!=='all')bits.push(ulabel(state.user));
+  $('f-summary').innerHTML=bits.length?('Filtras: <b>'+bits.map(esc).join(' · ')+'</b>'):'Rodoma: <b>viskas</b>';
+  loadReview();
+}
+function hashs(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h;}
+
+let revSeq=0;
+async function loadReview(){
+  const my=++revSeq;const q=new URLSearchParams({days:state.days,user:state.user,model:state.model,proxy:state.proxy,q:state.rev.q,page:state.rev.page,page_size:state.rev.size});
+  $('review').innerHTML='<tr><td colspan="7"><div class="loading">Kraunama…</div></td></tr>';
+  let j;try{const r=await fetch('api/review?'+q,{credentials:'same-origin'});if(r.status===401){location.href='login';return;}j=await r.json();}catch(e){$('review').innerHTML='<tr><td colspan="7"><div class="empty">Klaida kraunant</div></td></tr>';return;}
+  if(my!==revSeq)return;
+  const rows=j.rows||[];
+  $('review').innerHTML=rows.length?rows.map((c,i)=>{const p=PROXY[proxyOf(c.model)];const ts=new Date(c.ts);const tss=`${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;const open=false;const cost=tokensOf(c.bytes)*(DATA.prices[c.model]||0);
+    return `<tr class="rev-row" data-row aria-expanded="${open}"><td><span class="caret"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></td><td class="mono">${tss}</td><td>${esc(ulabel(c.user))}</td><td><span class="pill ${p.cls}">${p.label}</span> <span class="em">${esc(c.model)}</span></td><td class="r num">${(c.bytes/1000).toFixed(1)} kB</td><td class="r num spans">${c.spans}</td><td class="mono em">${esc(c.ip||'—')}</td></tr>`+
+      `<tr class="rev-detail"${open?'':' hidden'}><td colspan="7"><div class="rev-inner"><div class="rev-meta"><span>Turnas: <b>${esc(c.role||'—')}</b></span><span>Tokenai: <b class="num">≈ ${fmt(tokensOf(c.bytes))}</b></span><span>Kaštai: <b>${eur(cost)}</b></span><span>PII: <b class="num">${c.spans}</b></span></div><div class="rev-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 2.6v5.4c0 4.6-3 8.3-7 9.6-4-1.3-7-5-7-9.6V5.6L12 3z" stroke="currentColor" stroke-width="1.5"/></svg> Tekstas, kuris realiai iškeliavo į išorinį AI — asmens duomenys jau paslėpti</div><div class="rev-content">${hi(c.content)}</div></div></td></tr>`;
+  }).join(''):'<tr><td colspan="7"><div class="empty">Nėra užklausų pagal filtrą</div></td></tr>';
+  document.querySelectorAll('[data-row]').forEach(row=>row.addEventListener('click',()=>{const o=row.getAttribute('aria-expanded')==='true';row.setAttribute('aria-expanded',String(!o));const d=row.nextElementSibling;if(d&&d.classList.contains('rev-detail'))d.hidden=o;}));
+  renderPager(j.total||0);
+}
+
+function renderPager(total){
+  const size=state.rev.size,page=state.rev.page,pages=Math.max(1,Math.ceil(total/size));
+  const from=total?((page-1)*size+1):0,to=Math.min(page*size,total);
+  $('rev-pager').innerHTML=`<span class="info">${fmt(from)}–${fmt(to)} iš ${fmt(total)}</span>`+
+    `<button id="rev-prev" ${page<=1?'disabled':''}>‹ Ankstesnis</button>`+
+    `<span class="info">psl. ${page}/${pages}</span>`+
+    `<button id="rev-next" ${page>=pages?'disabled':''}>Kitas ›</button>`;
+  const pv=$('rev-prev'),nx=$('rev-next');
+  const go=d=>{state.rev.page+=d;const el=$('revpanel');if(el)el.scrollIntoView({block:'start'});loadReview();};
+  if(pv)pv.onclick=()=>{if(state.rev.page>1)go(-1);};
+  if(nx)nx.onclick=()=>{if(state.rev.page<pages)go(1);};
+}
+
+function drawChart(dates,byDay,shown){
+  const W=620,H=200,pl=34,pr=8,pt=12,pb=22,n=dates.length;const gw=(W-pl-pr)/n,bw=Math.min(16,Math.max(2,gw*0.62));
+  let max=0;for(const d of dates){let s=0;for(const p of shown)s+=(byDay[d]&&byDay[d][p])||0;max=Math.max(max,s);}
+  const niceMax=Math.max(5,Math.ceil(max/5)*5),y=v=>pt+(H-pt-pb)*(1-v/niceMax);let s='';const step=Math.max(1,Math.round(niceMax/4));
+  for(let g=0;g<=niceMax;g+=step){s+=`<line class="grid-line" x1="${pl}" x2="${W-pr}" y1="${y(g).toFixed(1)}" y2="${y(g).toFixed(1)}"/><text x="${pl-6}" y="${(y(g)+3).toFixed(1)}" text-anchor="end">${g}</text>`;}
+  for(let i=0;i<n;i++){const d=dates[i],x=pl+gw*i+(gw-bw)/2;let acc=0;for(const p of shown){const v=(byDay[d]&&byDay[d][p])||0;if(v<=0)continue;const h=(H-pt-pb)*v/niceMax;s+=`<rect x="${x.toFixed(1)}" y="${y(acc+v).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${PROXY[p].col}" rx="1.5"/>`;acc+=v;}}
+  const marks=n<=1?[0]:[...new Set([0,Math.floor(n/4),Math.floor(n/2),Math.floor(3*n/4),n-1])];
+  marks.forEach(i=>{const d=new Date(dates[i]+'T00:00:00');s+=`<text x="${(pl+gw*i+gw/2).toFixed(1)}" y="${H-6}" text-anchor="middle">${d.getMonth()+1}-${d.getDate()}</text>`;});
+  $('trend').innerHTML=s;
+}
+
+$('f-period').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.days=+b.dataset.d;state.rev.page=1;[...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));render();});
+$('f-proxy').addEventListener('change',e=>{state.proxy=e.target.value;state.rev.page=1;fillModel();render();});
+$('f-model').addEventListener('change',e=>{state.model=e.target.value;state.rev.page=1;render();});
+$('f-user').addEventListener('change',e=>{state.user=e.target.value;state.rev.page=1;render();});
+$('f-reset').addEventListener('click',()=>{state.days=30;state.proxy='all';state.model='all';state.user='all';state.rev={q:'',page:1,size:10};$('rev-q').value='';$('rev-size').value='10';[...$('f-period').children].forEach(x=>x.setAttribute('aria-pressed',x.dataset.d==='30'?'true':'false'));buildFilters();render();});
+let _rq;$('rev-q').addEventListener('input',()=>{clearTimeout(_rq);_rq=setTimeout(()=>{state.rev.q=$('rev-q').value.trim();state.rev.page=1;loadReview();},300);});
+$('rev-size').addEventListener('change',()=>{state.rev.size=+$('rev-size').value;state.rev.page=1;loadReview();});
+
+async function loadIdentify(){
+  let j;
+  try{const r=await fetch('api/identify',{credentials:'same-origin'});if(r.status===401){location.href='login';return;}j=await r.json();}
+  catch(e){$('idbody').innerHTML='<tr><td colspan="7"><div class="empty">Klaida kraunant</div></td></tr>';return;}
+  const names=j.names||{};
+  const rows=j.rows||[];
+  $('idbody').innerHTML=rows.length?rows.map(r=>{
+    const acc=r.account||'(nežinomas)';const cur=names[acc]||UMAP[acc]||'';
+    const accShort=isUuid(acc)?acc.slice(0,8)+'…':acc;
+    return `<tr><td class="mono acc" style="font-size:11px" title="${esc(acc)}">${esc(accShort)}</td><td class="r num">${fmt(r.req)}</td><td class="r em">${rel(r.last_seen)}</td><td class="em models" style="font-size:11px" title="${esc(r.models||'')}">${esc(r.models||'')}</td><td class="mono em">${esc(r.last_ip||'—')}</td><td class="idsample">${esc(r.sample||'')}</td>`+
+      `<td><div class="idname"><input value="${esc(cur)}" placeholder="vardas@regitra.lt"><button class="idsave">Išsaugoti</button><span class="idsaved"></span></div></td></tr>`;
+  }).join(''):'<tr><td colspan="7"><div class="empty">Nėra įrašų</div></td></tr>';
+  rows.forEach((r,i)=>{const tr=$('idbody').children[i];if(!tr)return;const btn=tr.querySelector('.idsave');const inp=tr.querySelector('input');const sv=tr.querySelector('.idsaved');const acc=r.account||'(nežinomas)';
+    const save=async()=>{btn.disabled=true;sv.textContent='…';
+      try{const rr=await fetch('api/name',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({account:acc,name:inp.value})});
+        if(rr.ok){sv.textContent='✓';const j2=await fetch('api/data?days=90',{credentials:'same-origin'}).then(x=>x.json());UMAP=j2.user_map||UMAP;render();}else sv.textContent='klaida';}
+      catch(e){sv.textContent='klaida';}
+      btn.disabled=false;};
+    btn.addEventListener('click',save);
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();});
+  });
+}
+
+// --- "Prijungti naują": wait for a NEW account_uuid to appear, auto-link it ---
+let _capTimer=null,_capSnap=null;
+function stopCap(msg){if(_capTimer){clearInterval(_capTimer);_capTimer=null;}$('cap-start').textContent='Prijungti naują';$('cap-status').textContent=msg||'';}
+async function accSet(){const j=await fetch('api/identify?days=7',{credentials:'same-origin'}).then(r=>r.json());return new Set((j.rows||[]).map(r=>r.account).filter(Boolean));}
+$('cap-start').addEventListener('click',async()=>{
+  if(_capTimer){stopCap('Atšaukta');return;}
+  const name=$('cap-name').value.trim();
+  if(!name){$('cap-status').textContent='Įrašyk vardą';return;}
+  $('cap-status').textContent='Ruošiama…';
+  _capSnap=await accSet();
+  $('cap-start').textContent='Stabdyti';
+  $('cap-status').textContent='Laukiama prisijungimo… paprašyk paleisti Claude Code';
+  let tries=0;
+  _capTimer=setInterval(async()=>{
+    tries++;
+    let now;try{now=await accSet();}catch(e){return;}
+    const neww=[...now].filter(a=>!_capSnap.has(a));
+    if(neww.length){
+      const acc=neww[0];
+      await fetch('api/name',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({account:acc,name})});
+      stopCap('✓ Prijungta: '+name+' → '+acc.slice(0,8)+'…');
+      $('cap-name').value='';
+      loadIdentify();const j=await fetch('api/data?days=90',{credentials:'same-origin'}).then(x=>x.json());UMAP=j.user_map||UMAP;render();
+    }else if(tries>=75){stopCap('Laikas baigėsi (5 min) — bandyk dar kartą');}
+  },4000);
+});
+
+load();
+</script>
+</body></html>

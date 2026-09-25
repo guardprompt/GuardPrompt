@@ -1,0 +1,14 @@
+{
+  "_comment": "Generic gpdeck brand template. The real per-deployment brand lives in brand.json (gitignored) or in the sandbox volume at ~/.gpbrand/brand.json, so a customer's name/logo never reaches the repo. Copy this to brand.json and edit for a deployment; set 'logo'/'logo_white' to PNG paths (transparent bg) for light/dark slides.",
+  "company": "Company",
+  "primary": "1F3C88",
+  "secondary": "2E6BD6",
+  "accent": "F5A623",
+  "dark": "1A2233",
+  "light": "F4F7FB",
+  "muted": "6B7A90",
+  "font": "Inter",
+  "font_head": "Inter",
+  "logo": "",
+  "logo_white": ""
+}

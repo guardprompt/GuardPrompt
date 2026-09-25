@@ -1,0 +1,49 @@
+# blackbox_exporter modules. Zabbix/Prometheus calls
+#   http://blackbox-exporter:9115/probe?target=<url>&module=<name>
+# and reads probe_success, probe_duration_seconds, probe_ssl_earliest_cert_expiry
+# (-> cert timeleft trigger), probe_http_status_code, etc.
+
+modules:
+  # Plain reachability + latency for an HTTP endpoint that should answer 2xx/3xx.
+  http_2xx:
+    prober: http
+    timeout: 8s
+    http:
+      valid_status_codes: []          # any 2xx/3xx counts as up
+      method: GET
+      preferred_ip_protocol: ip4
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+
+  # For the LLM/API upstreams (OpenRouter, Anthropic): a 401/403 still proves the
+  # endpoint is ALIVE (auth rejected, not down). Treat 2xx-4xx as reachable.
+  http_api_alive:
+    prober: http
+    timeout: 8s
+    http:
+      valid_status_codes: [200, 201, 204, 400, 401, 403, 405, 429]
+      method: GET
+      preferred_ip_protocol: ip4
+
+  # HTTPS with certificate inspection — probe_ssl_earliest_cert_expiry feeds the
+  # cert-expiry timeleft() trigger (the ha.dkprojektai.eu 502 was a cert issue).
+  https_cert:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      fail_if_not_ssl: true
+      valid_status_codes: [200, 201, 204, 301, 302, 400, 401, 403, 404, 429]
+      preferred_ip_protocol: ip4
+
+  # Bare TCP connect (e.g. postgres:5432, qdrant:6333, an embedding host:port).
+  tcp_connect:
+    prober: tcp
+    timeout: 6s
+
+  # ICMP ping (host reachability). Needs the container to keep NET_RAW.
+  icmp:
+    prober: icmp
+    timeout: 6s
+    icmp:
+      preferred_ip_protocol: ip4

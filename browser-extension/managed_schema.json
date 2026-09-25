@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "baseUrl": {
+      "title": "OWUI base URL (e.g. https://chat.dkprojektai.eu)",
+      "type": "string"
+    },
+    "modelFilter": {
+      "title": "Allowed model id/marker — the extension shows ONLY this model",
+      "type": "string"
+    }
+  }
+}

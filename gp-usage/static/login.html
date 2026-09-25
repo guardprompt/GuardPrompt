@@ -1,0 +1,34 @@
+<!doctype html><html lang="lt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prisijungimas · Proxy naudojimas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{--ground:#eef2f6;--surface:#fff;--surface-2:#f6f9fb;--ink:#132330;--muted:#5c6f7e;--border:#dde5ec;--accent:#0e7c86;--accent-soft:#dcf0f2;--crit:#bd3b2f;--crit-soft:#f7dfdc;--shadow:0 8px 30px rgba(19,35,48,.10)}
+@media (prefers-color-scheme:dark){:root{--ground:#0c141d;--surface:#111e29;--surface-2:#0f1a24;--ink:#e7eef4;--muted:#93a5b3;--border:#22323f;--accent:#28b7c3;--accent-soft:#13313a;--crit:#e0645a;--crit-soft:#331b19;--shadow:0 10px 40px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;display:grid;place-items:center;padding:20px}
+.card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:30px 28px}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.brand .s{color:var(--accent)}
+.brand b{font-weight:700;font-size:18px;letter-spacing:-.2px}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 22px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+input{width:100%;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:10px;padding:11px 13px;font:inherit;font-size:14px;outline:none}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+button{width:100%;margin-top:20px;border:0;background:var(--accent);color:#fff;font:inherit;font-weight:600;font-size:14px;padding:12px;border-radius:10px;cursor:pointer}
+button:hover{filter:brightness(1.06)}
+.err{background:var(--crit-soft);color:var(--crit);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:16px;font-weight:500}
+.foot{color:var(--muted);font-size:11.5px;text-align:center;margin-top:18px}
+</style></head><body>
+<form class="card" method="post" action="login">
+  <div class="brand"><span class="s"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2.5l7 2.6v5.4c0 4.6-3 8.3-7 9.6-4-1.3-7-5-7-9.6V5.1l7-2.6z" fill="currentColor" opacity=".13"/><path d="M12 2.5l7 2.6v5.4c0 4.6-3 8.3-7 9.6-4-1.3-7-5-7-9.6V5.1l7-2.6z" stroke="currentColor" stroke-width="1.4"/><path d="M8.7 12l2.2 2.2 4.4-4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>GuardPrompt</b></div>
+  <div class="sub">Proxy naudojimo apžvalga · tik administratoriams</div>
+  <label for="email">El. paštas</label>
+  <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+  <label for="password">Slaptažodis</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Prisijungti</button>
+  <!--ERR-->
+  <div class="foot">Prisijungimas per OpenWebUI / LDAP</div>
+</form>
+</body></html>

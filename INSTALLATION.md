@@ -1,0 +1,484 @@
+> 🌐 **Language / Kalba:** **English** · [Lietuvių](INSTALLATION.lt.md)
+
+\================================================================================
+
+                                GuardPrompt
+
+                         Installation & Usage Guide
+
+\================================================================================
+
+  
+
+This document explains how to install, configure, and run GuardPrompt locally.
+
+It applies to both CPU and GPU environments.
+
+  
+
+Architecture (all containers, ports, dependencies): see ARCHITECTURE.md
+
+  
+
+GuardPrompt provides:
+
+\- AI document assistant (OpenWebUI)
+
+\- On-prem anonymization engine (Anonymizer)
+
+\- Document ingestion & OCR pipeline (Docling)
+
+\- RAG knowledge base (Qdrant)
+
+\- Internal API gateway (GuardProxy)
+
+\- KB Admin panel — connect Confluence/Jira/SharePoint into OpenWebUI knowledge bases (kb-admin)
+
+  
+
+\- LLM backend — via OpenWebUI (OpenRouter or any OpenAI-compatible API); local vision model via Ollama (Ubuntu) or LM Studio (Windows, optional)
+
+  
+
+\--------------------------------------------------------------------------------
+
+1\. SYSTEM REQUIREMENTS
+
+\--------------------------------------------------------------------------------
+
+  
+
+Operating System:
+
+  - Windows 10/11 (Docker Desktop)
+
+    or
+
+  - Linux server (Ubuntu 22.04 recommended)
+
+  
+
+Hardware:
+
+  GPU version:
+
+    - NVIDIA GPU with CUDA support (6GB+ VRAM recommended)
+
+    - Updated NVIDIA drivers + CUDA runtime
+
+  
+
+Disk Space:
+
+  - Minimum 100 GB free
+
+  
+
+\--------------------------------------------------------------------------------
+
+2\. SOFTWARE REQUIREMENTS
+
+\--------------------------------------------------------------------------------
+
+  
+
+Required software:
+
+  1. Docker Desktop
+
+     https://www.docker.com/products/docker-desktop/
+
+  
+
+     Make sure Docker Desktop "Use WSL2 backend" is enabled.
+
+  
+
+  2. LLM backend (OpenRouter / Ollama / LM Studio — see section 7)
+
+     https://lmstudio.ai
+
+  
+
+     OpenWebUI reaches the chat LLM via OpenRouter or any OpenAI-compatible API. On Ubuntu a local vision model runs in-stack via Ollama; LM Studio is a Windows-only option.
+
+  
+
+\--------------------------------------------------------------------------------
+
+3\. GETTING THE CODE
+
+\--------------------------------------------------------------------------------
+
+  
+
+Recommended — clone the repository:
+
+     Linux:
+
+       git clone https://github.com/guardprompt/GuardPrompt.git /opt/guardprompt
+
+       cd /opt/guardprompt
+
+     Windows (PowerShell):
+
+       git clone https://github.com/guardprompt/GuardPrompt.git C:\\GuardPrompt
+
+       cd C:\\GuardPrompt
+
+Alternative — if you received a ZIP package instead, extract it to a folder of your choice, e.g.:
+
+  
+
+   C:\\GuardPrompt
+
+or
+
+   /opt/guardprompt
+
+  
+
+The folder must contain:
+
+  
+
+   docker-compose.yml
+
+   guardproxy/
+
+   anonymizer/
+
+   searxng/
+
+   docling\_api.py
+
+   .env.example  (template)
+
+   install.sh / install.ps1   (the installer)
+
+  
+
+FASTEST PATH — run the installer and skip sections 4 and 5:
+
+   Linux:     chmod +x install.sh && ./install.sh
+
+   Windows:   .\\install.ps1
+
+  
+
+The installer generates .env with fresh passwords, creates the per-machine licence key, builds and starts every container, and installs the GuardPrompt OpenWebUI function. Partway through it asks you to create the admin account at http://localhost:8080 (the first signup becomes admin).
+
+  
+
+Sections 4 and 5 below describe the same steps manually — use them for air-gapped or customised installs, or to understand what the installer did.
+
+  
+
+UPDATING LATER — releases are force-pushed, so "git pull" fails on a diverged history. Reset to the published state instead:
+
+   git fetch origin && git reset --hard origin/main
+
+   docker compose up -d --build
+
+  
+
+(--build matters: without it stale images keep running. .env, machine\_key.txt and your branding files are gitignored, so a reset leaves them untouched.)
+
+  
+
+Credentials for the external services (OpenRouter, Confluence, Jira, SharePoint, LDAP) are covered in CREDENTIALS.md; licence activation in section 8 below.   
+  
+
+\--------------------------------------------------------------------------------
+
+4\. PREPARING THE ENVIRONMENT (.env FILE)
+
+\--------------------------------------------------------------------------------
+
+  
+
+If you ran the installer (section 3) it already generated .env with unique passwords — normally you do not need to change anything. Edit it only to tune settings; every flag is documented inside .env.example.
+
+  
+
+Installing manually instead? Copy the template and edit it:
+
+   cp .env.example .env        (Windows: copy .env.example .env)
+
+  
+
+External keys/IDs (OpenWebUI API, OpenRouter, Confluence, Jira, SharePoint, LDAP, machine key): see CREDENTIALS.md
+
+GDPR & EU AI Act compliance (article-by-article): see COMPLIANCE.md
+
+  
+
+\--------------------------------------------------------------------------------
+
+5\. STARTING THE SYSTEM
+
+\--------------------------------------------------------------------------------
+
+  
+
+To start all GuardPrompt services:
+
+  
+
+   docker compose up -d
+
+  
+
+This will launch:
+
+  - GuardProxy (HTTP gateway)
+
+  - OpenWebUI (AI assistant)
+
+  - Anonymizer (data anonymization engine)
+
+  - gliner (on-prem NER for GDPR Art. 9/10 special categories; called by Anonymizer)
+
+  - Docling (OCR + document ingestion)
+
+  - Qdrant (vector database)
+
+  - PostgreSQL
+
+  - SearXNG search engine
+
+  - KB Admin panel (kb-admin) — curate Confluence/Jira/SharePoint knowledge bases
+
+  - Ollama (Ubuntu, local vision LLM for docling image captions)
+
+  - uploads-cleaner (periodic upload retention cleanup)
+
+  - gp-claude-proxy (Claude gateway for developer tooling — see GP-CLAUDE-PROXY.md)
+
+  - Zabbix monitoring stack (server + web + dedicated postgres) and exporters (node, cAdvisor, postgres, blackbox) — see MONITORING.md
+
+  
+
+Check running containers:
+
+  
+
+   docker ps
+
+  
+
+\--------------------------------------------------------------------------------
+
+6\. ACCESSING THE SYSTEM
+
+\--------------------------------------------------------------------------------
+
+  
+
+After all services start, open your browser:
+
+  
+
+   http://localhost:9099   → GuardProxy (main entry point)
+
+   http://localhost:9099/ui  → OpenWebUI interface
+
+   http://localhost:8005     → Anonymizer API
+
+   http://localhost:8777     → Docling OCR server
+
+     http://localhost:8006        → Claude proxy (developer tooling — see GP-CLAUDE-PROXY.md)
+
+     http://localhost:8880        → Zabbix monitoring (login Admin / zabbix — CHANGE THIS; see MONITORING.md)
+
+  
+
+\--------------------------------------------------------------------------------
+
+7\. LLM BACKEND SETUP (OpenRouter / Ollama / LM Studio)
+
+\--------------------------------------------------------------------------------
+
+  
+
+Chat LLM (default): configure inside OpenWebUI (Admin > Settings > Connections) — OpenRouter or any OpenAI-compatible API. Document image captions use a local vision model: Ubuntu runs Ollama in-stack (install.sh pulls the model automatically); on Windows you may use LM Studio instead:
+
+  
+
+  1. Start LM Studio
+
+  2. Load a model (e.g. google/gemma-3-4b)
+
+  3. Enable "Local Server" mode (Windows/LM Studio only), usually at:
+
+  
+
+       http://localhost:1234/v1/chat/completions
+
+  
+
+The endpoint and model are set in .env (LM_STUDIO_URL, LM_MODEL). On Ubuntu install.sh sets these to the in-stack Ollama automatically. Values are read from \`.env\`.
+
+  
+
+\--------------------------------------------------------------------------------
+
+8\. ACTIVATING THE TRIAL LICENSE
+
+\--------------------------------------------------------------------------------
+
+  
+
+Open the anonymizer registration information:
+
+  
+
+   http://localhost:8005/api/reginfo
+
+  
+
+You will see:
+
+  
+
+   Host ID: <auto-generated>
+
+   Host IP: <auto-detected>
+
+   Data Till: <blank>
+
+   Admin Email: <have to provide>
+
+   Admin Pass: <have to provide>
+
+   Users Count: 2
+
+  
+
+Send this information to GuardPrompt support:
+
+  
+
+   Email: info@guardprompt.lt
+
+   Telegram: @GuardPrompt
+
+  
+
+You will receive a confirmation email
+
+  
+
+After activation:
+
+ - 30-day trial begins
+
+ - All features are unlocked
+
+  
+
+\--------------------------------------------------------------------------------
+
+9\. STOPPING OR RESTARTING THE SYSTEM
+
+\--------------------------------------------------------------------------------
+
+  
+
+Stop all services:
+
+  
+
+   docker compose down
+
+  
+
+Restart:
+
+  
+
+   docker compose restart
+
+  
+
+Update images (manual — image versions are pinned):
+
+  
+
+   Image tags are pinned in docker-compose.yml. To update: bump a tag intentionally, then run  docker compose pull && docker compose up -d --remove-orphans
+
+  
+
+\--------------------------------------------------------------------------------
+
+10\. TROUBLESHOOTING
+
+\--------------------------------------------------------------------------------
+
+  
+
+1\. Ports already in use
+
+   Close conflicting applications or change ports in docker-compose.yml.
+
+  
+
+2\. GPU not detected
+
+   - Ensure NVIDIA drivers are installed
+
+   - Enable "Use GPU" in Docker Desktop Settings > Resources > GPU
+
+  
+
+3\. OpenWebUI does not start
+
+   Delete OpenWebUI cache folder:
+
+     ./cache/
+
+  
+
+4\. OCR quality is poor
+
+   Ensure Tesseract or Docling-Serve GPU is active.
+
+  
+
+5\. License not accepted
+
+   Ensure the machine clock is correct and .env values match registration info.
+
+  
+
+\--------------------------------------------------------------------------------
+
+11\. CONTACT & SUPPORT
+
+\--------------------------------------------------------------------------------
+
+  
+
+GuardPrompt Support:
+
+  Email: info@guardprompt.lt
+
+  Telegram: @GuardPrompt
+
+  
+
+Commercial licenses include:
+
+  - Installation assistance
+
+  - Priority updates
+
+  - Enterprise-scale deployment help
+
+  
+
+\================================================================================
+
+                     Thank you for choosing GuardPrompt!
+
+\================================================================================

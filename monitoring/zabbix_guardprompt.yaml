@@ -1,0 +1,959 @@
+zabbix_export:
+  version: '6.0'
+  # ===========================================================================
+  # GuardPrompt Platform — Zabbix template (HTTP-agent, Prometheus preprocessing)
+  #
+  # Import: Data collection -> Templates -> Import (this file). Then link the
+  # template to a host and adjust the macros below if needed.
+  #
+  # The URL macros default to CONTAINER NAMES on the openwebui_net network,
+  # because the bundled Zabbix runs AS A CONTAINER on that network and scrapes
+  # its peers by name (127.0.0.1 inside the Zabbix container is itself, not the
+  # host — the #1 gotcha). This also works for the opt-in corporate-Zabbix PROXY
+  # (it joins openwebui_net too). Only override these if you run a Zabbix server
+  # OUTSIDE the compose network (then point them at the host LAN / a proxy).
+  #
+  # Pattern: one HTTP "master" item scrapes each /metrics blob; DEPENDENT items
+  # extract single values with PROMETHEUS_PATTERN preprocessing — one scrape,
+  # many metrics. Focused on the highest-value preventive + leak triggers; extend
+  # by cloning the dependent items for other metrics in MONITORING-PLAN.md.
+  #
+  # NOTE: hand-authored without a Zabbix to import-test against — verify on import
+  # and adjust the version line / any preprocessing your Zabbix rejects.
+  # ===========================================================================
+  groups:
+    - uuid: 19807d8bdfe54c47b862860d6a3b3741
+      name: 'Templates/Applications'
+  templates:
+    - uuid: 64056bf39d074017803b4ff20e9b6bf5
+      template: 'GuardPrompt Platform'
+      name: 'GuardPrompt Platform'
+      description: 'GuardPrompt AI platform — proxy, gliner, anonymizer, host, DB, synthetic. See MONITORING-PLAN.md.'
+      groups:
+        - name: 'Templates/Applications'
+      macros:
+        # Container-name defaults (bundled Zabbix on openwebui_net). NOTE gliner
+        # uses its INTERNAL port 8000 (the 127.0.0.1:8500 bind is host-only).
+        - macro: '{$GP.PROXY.URL}'
+          value: 'http://gp-claude-proxy:8006/metrics'
+        - macro: '{$GP.OAI.URL}'
+          value: 'http://gp-openai-proxy:8000/metrics'
+        - macro: '{$GP.GLINER.URL}'
+          value: 'http://gliner:8000/metrics'
+        # GPU telemetry (dcgm-exporter). GPU.MINFREE = MiB of free VRAM below which
+        # to alert — the shared L40S-24C oversubscribes and gliner OOMs when it runs
+        # out (-> fail-closed -> 503). 2000 MiB gives a head-start before OOM.
+        - macro: '{$GP.DCGM.URL}'
+          value: 'http://dcgm-exporter:9400/metrics'
+        - macro: '{$GP.GPU.MINFREE}'
+          value: '2000'
+        - macro: '{$GP.ANON.URL}'
+          value: 'http://anonymizer:8005/metrics'
+        - macro: '{$GP.KBADMIN.URL}'
+          value: 'http://kb-admin:8000/metrics'
+        - macro: '{$GP.NODE.URL}'
+          value: 'http://node-exporter:9100/metrics'
+        - macro: '{$GP.PG.URL}'
+          value: 'http://postgres-exporter:9187/metrics'
+        - macro: '{$GP.QDRANT.URL}'
+          value: 'http://qdrant:6333/metrics'
+        # Set to QDRANT_API_KEY (.env) — qdrant does NOT exempt /metrics from the key.
+        - macro: '{$GP.QDRANT.APIKEY}'
+          value: ''
+        - macro: '{$GP.QDRANT.QUEUE.MAX}'
+          value: '100'
+        - macro: '{$GP.BLACKBOX}'
+          value: 'http://blackbox-exporter:9115'
+        # Domain whose TLS cert to watch — set per deployment (host macro).
+        - macro: '{$GP.CERT.TARGET}'
+          value: 'https://chat.dkprojektai.eu'
+        # node-exporter reports host mounts under --path.rootfs=/host as real
+        # paths; set to the data disk (e.g. /srv) per host.
+        - macro: '{$GP.DISK.MOUNT}'
+          value: '/'
+        - macro: '{$GP.LOOPLAG.MAX}'
+          value: '0.5'
+        - macro: '{$GP.QUEUE.MAX}'
+          value: '50'
+        - macro: '{$GP.CERT.MIN.DAYS}'
+          value: '14d'
+        - macro: '{$GP.DISK.MIN.DAYS}'
+          value: '7d'
+      items:
+        # ---- master scrapes (raw text, no history) --------------------------
+        - uuid: 90e6a6b4e696438997a53c3a6e796a1e
+          name: 'proxy: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.proxy.metrics'
+          delay: '30s'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.PROXY.URL}'
+          triggers:
+            - uuid: cb88cf66ab3c4fd08717ba5f2a3cecdf
+              expression: 'nodata(/GuardPrompt Platform/gp.proxy.loop_lag,5m)=1'
+              name: 'proxy /metrics not answering (source down)'
+              priority: HIGH
+              description: |
+                Cause: gp-claude-proxy is down/unreachable or /metrics errored.
+                Fix: docker compose ps gp-claude-proxy; docker logs gp-claude-proxy; verify {$GP.PROXY.URL} is reachable from the Zabbix host; docker compose up -d gp-claude-proxy.
+        - uuid: 90e6a6b4e696438997a53c3a6e796b2f
+          name: 'openai-proxy: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.oai.metrics'
+          delay: '30s'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.OAI.URL}'
+          triggers:
+            - uuid: cb88cf66ab3c4fd08717ba5f2a3ce001
+              expression: 'nodata(/GuardPrompt Platform/gp.oai.loop_lag,5m)=1'
+              name: 'openai-proxy /metrics not answering (source down)'
+              priority: HIGH
+              description: |
+                Cause: gp-openai-proxy is down/unreachable or /metrics errored.
+                Fix: docker compose ps gp-openai-proxy; docker logs gp-openai-proxy; verify {$GP.OAI.URL} is reachable from the Zabbix host; docker compose up -d gp-openai-proxy.
+        - uuid: 4288c67d278540ca94cb986f297adc83
+          name: 'gliner: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.gliner.metrics'
+          delay: '30s'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.GLINER.URL}'
+          triggers:
+            - uuid: bd4d65f0710f469c8889e2ee541d571c
+              expression: 'nodata(/GuardPrompt Platform/gp.gliner.on_gpu,5m)=1'
+              name: 'gliner /metrics not answering (source down)'
+              priority: HIGH
+              description: |
+                Cause: gliner container down or /metrics failing.
+                Fix: docker logs gliner; docker compose up -d gliner; if OOM/CUDA, check nvidia-smi and the GPU reservation.
+        - uuid: 829e995743564e5595026afad58f242f
+          name: 'anonymizer: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.anon.metrics'
+          delay: '30s'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.ANON.URL}'
+          triggers:
+            - uuid: b204cc89772a4adaad4de181e34de275
+              expression: 'nodata(/GuardPrompt Platform/gp.anon.fail_closed,5m)=1'
+              name: 'anonymizer /metrics not answering (source down)'
+              priority: HIGH
+              description: |
+                Cause: anonymizer down, or its api-key middleware blocks /metrics (must be in PUBLIC_PATHS).
+                Fix: docker logs anonymizer; curl the /metrics URL (expect 200); docker compose up -d anonymizer.
+        # ---- kb-admin: correctness (OWUI auth + KB sync freshness) -----------
+        # Catches the class "a container is UP but its function is broken" — e.g.
+        # a rotated OWUI key (owui_auth_ok=0) or a KB update that silently stopped
+        # (jobs_overdue>0). These went UNNOTICED before because only liveness was watched.
+        - uuid: ab12cd34ef5647889001020304050601
+          name: 'kb-admin: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.kbadmin.metrics'
+          delay: '1m'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.KBADMIN.URL}'
+          triggers:
+            - uuid: ab12cd34ef5647889001020304050602
+              expression: 'nodata(/GuardPrompt Platform/gp.kbadmin.owui_auth,5m)=1'
+              name: 'kb-admin /metrics not answering (source down)'
+              priority: HIGH
+              description: |
+                Cause: kb-admin container down/unreachable or /metrics errored.
+                Fix: docker compose ps kb-admin; docker logs kb-admin; curl {$GP.KBADMIN.URL} (expect 200); docker compose up -d kb-admin.
+        - uuid: ab12cd34ef5647889001020304050603
+          name: 'kb-admin: OpenWebUI auth OK'
+          type: DEPENDENT
+          key: 'gp.kbadmin.owui_auth'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.kbadmin.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'kbadmin_owui_auth_ok'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: ab12cd34ef5647889001020304050604
+              expression: 'last(/GuardPrompt Platform/gp.kbadmin.owui_auth)=0'
+              name: 'kb-admin cannot authenticate to OpenWebUI (KB sync + admin listings broken)'
+              priority: HIGH
+              description: |
+                Cause: OWUI API key rotated/expired/disabled, or admin credentials wrong. kb-admin's groups/users/KB-sync all fail (401).
+                Fix: verify OWUI is up + API keys enabled; set OPEN_WEBUI_ADMIN_EMAIL/PASSWORD (self-heal) or a valid OPEN_WEBUI_API_KEY in .env; docker compose up -d --build kb-admin.
+        - uuid: ab12cd34ef5647889001020304050605
+          name: 'kb-admin: DB reachable'
+          type: DEPENDENT
+          key: 'gp.kbadmin.db_ok'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.kbadmin.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'kbadmin_db_ok'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: ab12cd34ef5647889001020304050606
+              expression: 'last(/GuardPrompt Platform/gp.kbadmin.db_ok)=0'
+              name: 'kb-admin cannot reach Postgres'
+              priority: HIGH
+              description: |
+                Cause: postgres down/unreachable or DB_URL wrong.
+                Fix: docker compose ps postgres; docker logs kb-admin; verify DB_URL.
+        - uuid: ab12cd34ef5647889001020304050607
+          name: 'kb-admin: KB jobs in error'
+          type: DEPENDENT
+          key: 'gp.kbadmin.jobs_error'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.kbadmin.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'kbadmin_jobs_error'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: ab12cd34ef5647889001020304050608
+              expression: 'last(/GuardPrompt Platform/gp.kbadmin.jobs_error)>0'
+              name: 'kb-admin: one or more KB sync jobs FAILED'
+              priority: AVERAGE
+              description: |
+                Cause: a KB sync (oikb) errored — see the job's error_message in the kb-admin UI.
+                Fix: open kb-admin, check the failing job; docker logs kb-admin; re-run the sync.
+        - uuid: ab12cd34ef5647889001020304050609
+          name: 'kb-admin: KB jobs overdue (sync stopped)'
+          type: DEPENDENT
+          key: 'gp.kbadmin.jobs_overdue'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.kbadmin.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'kbadmin_jobs_overdue'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: ab12cd34ef564788900102030405060a
+              expression: 'min(/GuardPrompt Platform/gp.kbadmin.jobs_overdue,15m)>0'
+              name: 'kb-admin: KB update overdue (>2x interval since last sync)'
+              priority: AVERAGE
+              description: |
+                Cause: an enabled KB job has not synced within 2x its interval (or never synced) — the update silently stopped.
+                Fix: open kb-admin, check the job status/last sync; verify OWUI auth (gp.kbadmin.owui_auth); re-run the sync.
+        - uuid: ab12cd34ef564788900102030405060b
+          name: 'kb-admin: oldest sync age (s)'
+          type: DEPENDENT
+          key: 'gp.kbadmin.sync_age'
+          value_type: FLOAT
+          units: 's'
+          master_item:
+            key: 'gp.kbadmin.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'kbadmin_sync_age_seconds'
+                - 'value'
+                - ''
+        - uuid: cac0d6a960a449309c4469e297a99115
+          name: 'node-exporter: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.node.metrics'
+          delay: '1m'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.NODE.URL}'
+        - uuid: 089482535161490495d647e0d0a03162
+          name: 'postgres-exporter: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.pg.metrics'
+          delay: '1m'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.PG.URL}'
+        - uuid: d38e2dd079d14fc99ad8a49b530528c8
+          name: 'dcgm-exporter: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.dcgm.metrics'
+          delay: '30s'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.DCGM.URL}'
+          triggers:
+            - uuid: 9a7af72b44db45fd80b562322f7539da
+              expression: 'nodata(/GuardPrompt Platform/gp.gpu.mem_free,5m)=1'
+              name: 'dcgm-exporter /metrics not answering (GPU telemetry down)'
+              priority: AVERAGE
+              description: |
+                Cause: dcgm-exporter down or unreachable -> no GPU VRAM/util visibility.
+                Fix: docker logs dcgm-exporter; docker compose up -d dcgm-exporter; verify {$GP.DCGM.URL} from the Zabbix host.
+        - uuid: 7ebd5f0d6af2480b953a0f3cc14a186e
+          name: 'blackbox: cert probe (raw)'
+          type: HTTP_AGENT
+          key: 'gp.cert.probe'
+          delay: '5m'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.BLACKBOX}/probe'
+          query_fields:
+            - name: 'target'
+              value: '{$GP.CERT.TARGET}'
+            - name: 'module'
+              value: 'https_cert'
+
+        # ---- SAFETY: fail-closed (immediate) --------------------------------
+        - uuid: 179ccd6473344c21a3151ab2baf9c582
+          name: 'proxy: fail-closed total'
+          type: DEPENDENT
+          key: 'gp.proxy.fail_closed'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.proxy.metrics'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                    var t=0,L=value.split(String.fromCharCode(10)),i;
+                    for(i=0;i<L.length;i++){if(L[i].indexOf('gp_fail_closed_total')===0){var q=L[i].split(' ');t+=parseFloat(q[q.length-1]);}}
+                    return t;
+          triggers:
+            - uuid: 159938edf01f490da330b80a26e7c609
+              expression: 'change(/GuardPrompt Platform/gp.proxy.fail_closed)>0'
+              name: 'proxy fail-closed fired (masking failure -> possible leak risk)'
+              priority: DISASTER
+              description: |
+                Meaning: pseudonymization failed so the request was REFUSED (no data leaked, but users blocked); usually gliner is down or threw.
+                Fix: docker logs gp-claude-proxy | grep -i fail; restore gliner; it clears once masking works. NEVER set GP_FAIL_CLOSED=false (forwards raw data).
+        - uuid: 179ccd6473344c21a3151ab2baf90001
+          name: 'openai-proxy: fail-closed total'
+          type: DEPENDENT
+          key: 'gp.oai.fail_closed'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.oai.metrics'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                    var t=0,L=value.split(String.fromCharCode(10)),i;
+                    for(i=0;i<L.length;i++){if(L[i].indexOf('gp_fail_closed_total')===0){var q=L[i].split(' ');t+=parseFloat(q[q.length-1]);}}
+                    return t;
+          triggers:
+            - uuid: 159938edf01f490da330b80a26e70001
+              expression: 'change(/GuardPrompt Platform/gp.oai.fail_closed)>0'
+              name: 'openai-proxy fail-closed fired (masking failure -> possible leak risk)'
+              priority: DISASTER
+              description: |
+                Meaning: pseudonymization failed so the OpenRouter request was REFUSED (no data leaked, but users blocked); usually gliner is down or threw.
+                Fix: docker logs gp-openai-proxy | grep -i fail; restore gliner; it clears once masking works. NEVER set GP_FAIL_CLOSED=false.
+        - uuid: 36772218f8034417bc7be07a99978be1
+          name: 'anonymizer: fail-closed total'
+          type: DEPENDENT
+          key: 'gp.anon.fail_closed'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.anon.metrics'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                    var t=0,L=value.split(String.fromCharCode(10)),i;
+                    for(i=0;i<L.length;i++){if(L[i].indexOf('anon_fail_closed_total')===0){var q=L[i].split(' ');t+=parseFloat(q[q.length-1]);}}
+                    return t;
+          triggers:
+            - uuid: f612faaa0be748ea9af667978d473cc5
+              expression: 'change(/GuardPrompt Platform/gp.anon.fail_closed)>0'
+              name: 'anonymizer fail-closed fired (masking failure)'
+              priority: DISASTER
+              description: |
+                Meaning: anonymization blocked a request (masking failed, invalid licence, or gliner down).
+                Fix: docker logs anonymizer for LICENSE/gliner errors; check the licence (curl /api/reginfo) and gliner health. Do not disable fail-closed.
+
+        # ---- gliner: GPU fallback + queue (would have caught our bug) --------
+        - uuid: 216293a9ec514e568c503a93070f280c
+          name: 'gliner: NER model on GPU'
+          type: DEPENDENT
+          key: 'gp.gliner.on_gpu'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.gliner.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gliner_model_on_gpu'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 4fda808f0e3348c787632845585f2ab1
+              expression: 'last(/GuardPrompt Platform/gp.gliner.on_gpu)=0'
+              name: 'gliner NER fell back to CPU (throughput will collapse)'
+              priority: HIGH
+              description: |
+                Cause: NER model not on the GPU (CUDA missing / driver / OOM) -> ~17x slower.
+                Fix: docker exec gliner python -c 'import torch;print(torch.cuda.is_available())'; check nvidia-smi + driver + the compose GPU reservation; restart gliner.
+        - uuid: c66864a5f41f45e59460291c4d353d4b
+          name: 'gliner: batcher queue depth'
+          type: DEPENDENT
+          key: 'gp.gliner.queue'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.gliner.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gliner_queue_depth'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 32cce7033b93404691d9bc2b81b098c0
+              expression: 'min(/GuardPrompt Platform/gp.gliner.queue,5m)>{$GP.QUEUE.MAX}'
+              name: 'gliner queue backing up (consumer slower than producer)'
+              priority: AVERAGE
+              description: |
+                Cause: request rate exceeds batcher throughput (often because on_gpu=0).
+                Fix: check gp.gliner.on_gpu first; raise GLINER_BATCH_MAX; reduce upstream load or scale gliner.
+        # NER kernel errors — the DIRECT gliner-side signal of a runtime GPU
+        # failure (notably a vGPU LICENCE drop: cudaErrorDeviceNotLicensed).
+        # gliner_model_on_gpu does NOT catch this (set once at startup, stays 1),
+        # so this counter is the in-service catch; node_nvidia_vgpu_licensed
+        # (below, via textfile) is the earlier, root-cause catch.
+        - uuid: a1b2c3d4e5f6478890a1b2c3d4e5f601
+          name: 'gliner: NER inference errors'
+          type: DEPENDENT
+          key: 'gp.gliner.infer_err'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.gliner.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gliner_inference_errors_total'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: a1b2c3d4e5f6478890a1b2c3d4e5f602
+              expression: 'change(/GuardPrompt Platform/gp.gliner.infer_err)>0'
+              name: 'gliner NER inference failing (GPU error / vGPU licence drop?)'
+              priority: HIGH
+              description: |
+                Cause: the NER forward pass threw. The classic cause is a vGPU Grid
+                LICENCE drop (cudaErrorDeviceNotLicensed) — the DLS/token became
+                unreachable so CUDA compute is blocked; every /analyze then 500s and
+                anonymizer/proxy fail-closed (users blocked, no data leaked).
+                Fix: on the GPU host run `nvidia-smi -q | grep -i license` (expect
+                Licensed); if Unlicensed, check `systemctl status nvidia-gridd` and
+                DNS/reachability of the DLS token servers, then restart nvidia-gridd.
+                Also check node_nvidia_vgpu_licensed. If not a licence issue: docker
+                logs gliner for OOM/driver errors; verify the compose GPU reservation.
+
+        # gliner survived a CUDA OOM by running on CPU (see gliner_cpu_fallback_total):
+        # no 503, but NER is ~17x slower until VRAM is freed. Degradation signal.
+        - uuid: 98107abc5801457a81b45ec19489606b
+          name: 'gliner: CPU-fallback count'
+          type: DEPENDENT
+          key: 'gp.gliner.cpu_fallback'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.gliner.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gliner_cpu_fallback_total'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: a4a31d242ba6408a92eb6f75f27e3cfa
+              expression: 'change(/GuardPrompt Platform/gp.gliner.cpu_fallback)>0'
+              name: 'gliner degraded to CPU after GPU OOM (slow — free VRAM)'
+              priority: AVERAGE
+              description: |
+                Meaning: the GPU ran out of memory so gliner processed a batch on CPU
+                to avoid failing (no 503, but ~17x slower NER). The platform is up but
+                degraded. Fix: free GPU VRAM (see the GPU-VRAM-exhausted trigger) —
+                nvidia-smi, ollama keep_alive, OWUI reranker/embed to CPU, docling cap.
+
+        # ---- GPU VRAM headroom (dcgm-exporter) — EARLY warning before OOM ----
+        # Fires BEFORE gp.gliner.infer_err / proxy.fail_closed: the shared L40S-24C
+        # runs gliner + OWUI embed/reranker + docling + gp-transcribe + ollama, and
+        # when free VRAM runs out gliner's NER throws CUDA OOM -> fail-closed -> 503.
+        - uuid: 2c41fd451a304685aa73e89d5fac54ac
+          name: 'gpu: VRAM free (MiB)'
+          type: DEPENDENT
+          key: 'gp.gpu.mem_free'
+          value_type: FLOAT
+          units: 'MB'
+          master_item:
+            key: 'gp.dcgm.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'DCGM_FI_DEV_FB_FREE'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 8664c0143ad64f31988f7775a802db9a
+              expression: 'max(/GuardPrompt Platform/gp.gpu.mem_free,5m)<{$GP.GPU.MINFREE}'
+              name: 'GPU VRAM nearly exhausted (models will OOM -> anonymizer/proxy fail-closed -> 503)'
+              priority: HIGH
+              description: |
+                Cause: free GPU VRAM stayed below {$GP.GPU.MINFREE} MiB for 5 min. The
+                shared L40S-24C is oversubscribed; when it runs out, gliner's NER
+                forward pass throws CUDA OOM, so gp-claude/openai-proxy fail-closed
+                and ALL chat 503s (developers complain). This is the EARLY signal,
+                ahead of gp.gliner.infer_err and *.fail_closed.
+                Fix: nvidia-smi to find the hog; free ~5GB — ollama OLLAMA_KEEP_ALIVE
+                (unload idle gemma), move OWUI reranker/embedding to CPU, lower
+                DOCLING_CUDA_MEM_GB. (Do NOT set gliner expandable_segments on this
+                vGPU — VMM unsupported -> CUDA "operation not supported"; the compose
+                uses max_split_size_mb instead.)
+
+        # ---- LEAK: proxy event-loop lag + pool ------------------------------
+        - uuid: c9170423c28347f2a7c306251b4f7dce
+          name: 'proxy: event-loop lag'
+          type: DEPENDENT
+          key: 'gp.proxy.loop_lag'
+          value_type: FLOAT
+          units: s
+          master_item:
+            key: 'gp.proxy.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_event_loop_lag_seconds'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 22ce2b638ba747098b7c9b023c88df4e
+              expression: 'min(/GuardPrompt Platform/gp.proxy.loop_lag,5m)>{$GP.LOOPLAG.MAX}'
+              name: 'proxy async event loop blocked (CPU-bound work starving I/O)'
+              priority: AVERAGE
+              description: |
+                Cause: CPU-bound work (regex RULES / large payload) starving the single async worker.
+                Fix: check payload sizes and mask duration; offload heavy work to an executor; if sustained, add a worker/process.
+        - uuid: fe226c3b8e004aae8ba652d447828b0e
+          name: 'proxy: DB pool in use'
+          type: DEPENDENT
+          key: 'gp.proxy.pool_inuse'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.proxy.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_db_pool_inuse'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 390d2e29a8704eb88c1430bb4fee7c6d
+              expression: 'timeleft(/GuardPrompt Platform/gp.proxy.pool_inuse,30m,8)<1h'
+              name: 'proxy DB pool trending to exhaustion (connection leak?)'
+              priority: AVERAGE
+              description: |
+                Cause: DB connections not returned (leak) or a load spike.
+                Fix: watch gp_db_pool_inuse trend; look for un-closed/un-awaited queries; restarting the proxy clears it; only raise the pool size after ruling out a leak.
+        - uuid: c9170423c28347f2a7c306251b4f0001
+          name: 'openai-proxy: event-loop lag'
+          type: DEPENDENT
+          key: 'gp.oai.loop_lag'
+          value_type: FLOAT
+          units: s
+          master_item:
+            key: 'gp.oai.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_event_loop_lag_seconds'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 22ce2b638ba747098b7c9b023c880001
+              expression: 'min(/GuardPrompt Platform/gp.oai.loop_lag,5m)>{$GP.LOOPLAG.MAX}'
+              name: 'openai-proxy async event loop blocked (CPU-bound work starving I/O)'
+              priority: AVERAGE
+              description: |
+                Cause: CPU-bound work (regex RULES / large payload) starving the single async worker.
+                Fix: check payload sizes and mask duration; offload heavy work to an executor; if sustained, add a worker/process.
+        - uuid: fe226c3b8e004aae8ba652d447820001
+          name: 'openai-proxy: DB pool in use'
+          type: DEPENDENT
+          key: 'gp.oai.pool_inuse'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.oai.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_db_pool_inuse'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 390d2e29a8704eb88c1430bb4fee0001
+              expression: 'timeleft(/GuardPrompt Platform/gp.oai.pool_inuse,30m,8)<1h'
+              name: 'openai-proxy DB pool trending to exhaustion (connection leak?)'
+              priority: AVERAGE
+              description: |
+                Cause: DB connections not returned (leak) or a load spike.
+                Fix: watch gp_db_pool_inuse trend; look for un-closed/un-awaited queries; restarting the proxy clears it; only raise the pool size after ruling out a leak.
+
+        # ---- CAPACITY: disk timeleft ----------------------------------------
+        - uuid: 1f64fc0844044ff5ab71cb9bf69ea611
+          name: 'host: filesystem avail bytes'
+          type: DEPENDENT
+          key: 'gp.node.fs_avail'
+          value_type: FLOAT
+          units: B
+          master_item:
+            key: 'gp.node.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'node_filesystem_avail_bytes{mountpoint="{$GP.DISK.MOUNT}"}'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 393c0834bc804e94bfd1b4177bbb7012
+              expression: 'timeleft(/GuardPrompt Platform/gp.node.fs_avail,1h,0)<{$GP.DISK.MIN.DAYS}'
+              name: 'disk predicted full within {$GP.DISK.MIN.DAYS}'
+              priority: HIGH
+              description: |
+                Cause: growth in docker images/volumes/logs, qdrant or postgres.
+                Fix: docker system df; docker image prune; check pg + qdrant volume size; set retention (GP_VAULT_TTL_DAYS, GP_AUDIT_TTL_DAYS, uploads-cleaner) or expand the disk.
+
+        # ---- GPU: vGPU (Grid) LICENCE state ---------------------------------
+        # Root-cause catch for the cudaErrorDeviceNotLicensed failure. Fed by the
+        # node-exporter textfile collector: the host cron gpu-license-textfile.sh
+        # writes node_nvidia_vgpu_licensed (1 licensed, 0 lapsed). This fires the
+        # instant the licence lapses — BEFORE gliner errors / fail-closed block
+        # users. No value on non-GPU hosts (dev): the nodata clause stays quiet
+        # there only if you don't run the cron; disable this trigger on dev.
+        - uuid: a1b2c3d4e5f6478890a1b2c3d4e5f603
+          name: 'gpu: vGPU Grid licensed'
+          type: DEPENDENT
+          key: 'gp.node.vgpu_licensed'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.node.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'node_nvidia_vgpu_licensed'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: a1b2c3d4e5f6478890a1b2c3d4e5f604
+              expression: 'last(/GuardPrompt Platform/gp.node.vgpu_licensed)=0'
+              name: 'vGPU Grid licence LAPSED (all CUDA compute blocked)'
+              priority: DISASTER
+              description: |
+                Meaning: the NVIDIA vGPU (Grid) licence is Unlicensed — the DLS/token
+                server is unreachable and the grace period ended. ALL GPU services
+                (gliner NER, embeddings, docling) lose CUDA; gliner 500s and the
+                platform fail-closes (users blocked, no data leaked).
+                Fix: on the host `nvidia-smi -q | grep -i license`; `systemctl status
+                nvidia-gridd` (look for "Failed to fetch config token"); check DNS +
+                reachability of the DLS token servers and /etc/nvidia/gridd.conf
+                ServerAddress; once DNS/DLS is restored `systemctl restart
+                nvidia-gridd` and re-check for "Licensed : Yes". This is a host /
+                infrastructure issue, not a GuardPrompt bug.
+
+        # ---- CERT expiry (the ha 502 class of problem) ----------------------
+        - uuid: d28ff6b633484047bb21cf224d157089
+          name: 'cert: earliest expiry (unixtime)'
+          type: DEPENDENT
+          key: 'gp.cert.expiry'
+          value_type: FLOAT
+          units: unixtime
+          master_item:
+            key: 'gp.cert.probe'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'probe_ssl_earliest_cert_expiry'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: ef23a41aedbf41ee86bfe1413813a10b
+              expression: 'last(/GuardPrompt Platform/gp.cert.expiry)-now()<{$GP.CERT.MIN.DAYS}'
+              name: 'TLS cert for {$GP.CERT.TARGET} expires in < {$GP.CERT.MIN.DAYS}'
+              priority: HIGH
+              description: |
+                Cause: the TLS cert on {$GP.CERT.TARGET} is near expiry.
+                Fix: renew (Lets Encrypt / NPM / Cloudflare); confirm auto-renew ran; reload the front proxy after renewal.
+        - uuid: 7387583237464d108087056f8d2cdf42
+          name: 'cert: probe success'
+          type: DEPENDENT
+          key: 'gp.cert.success'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.cert.probe'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'probe_success'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 28fb29348cfc42c4a98597c6cb3201f0
+              expression: 'last(/GuardPrompt Platform/gp.cert.success)=0'
+              name: '{$GP.CERT.TARGET} probe failing (endpoint unreachable)'
+              priority: HIGH
+              description: |
+                Cause: endpoint unreachable or TLS handshake failing.
+                Fix: check the front proxy (nginx/NPM) is up; DNS + firewall; cert present. curl -vI {$GP.CERT.TARGET}.
+
+        # ---- LEAK/BLOAT: audit dead tuples + idle-in-tx ---------------------
+        - uuid: 01a54262c8144f33a3b1ccc5a8f00585
+          name: 'pg: gp_audit dead tuples'
+          type: DEPENDENT
+          key: 'gp.pg.audit_dead'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_audit_health_dead_tuples'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 6fccf4154abe455ba387c2af93343f61
+              expression: 'min(/GuardPrompt Platform/gp.pg.audit_dead,30m)>100000 and last(/GuardPrompt Platform/gp.pg.audit_dead)>2*last(/GuardPrompt Platform/gp.pg.audit_live)'
+              name: 'gp_audit bloating (dead tuples >> live; autovacuum not keeping up)'
+              priority: AVERAGE
+              description: |
+                Cause: dead tuples greatly exceed live in gp_audit; autovacuum is behind the heavy prune DELETEs.
+                Fix: VACUUM (ANALYZE) gp_audit; tune autovacuum for the table; prune in batches; check GP_AUDIT_TTL_DAYS.
+        - uuid: a30a16bb35e0424382032c1bb5502f56
+          name: 'pg: gp_audit live tuples'
+          type: DEPENDENT
+          key: 'gp.pg.audit_live'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_audit_health_live_tuples'
+                - 'value'
+                - ''
+        - uuid: d006258696e24090a89c5fc6cf3648ba
+          name: 'pg: idle-in-transaction connections'
+          type: DEPENDENT
+          key: 'gp.pg.idle_in_tx'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_pg_idle_in_tx_connections'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: c5b46261e2974947ad118be720aa8c52
+              expression: 'min(/GuardPrompt Platform/gp.pg.idle_in_tx,10m)>0'
+              name: 'idle-in-transaction connections (stuck txn / connection leak)'
+              priority: AVERAGE
+              description: |
+                Cause: a client left a transaction open -> it holds a connection and locks.
+                Fix: SELECT * FROM pg_stat_activity WHERE state='idle in transaction'; fix the client to commit/rollback; set idle_in_transaction_session_timeout.
+
+        # ---- qdrant: vector DB (api-key protected /metrics) -----------------
+        - uuid: 6cfdf2973bb248ecb81ffe0ef50761d7
+          name: 'qdrant: /metrics (raw)'
+          type: HTTP_AGENT
+          key: 'gp.qdrant.metrics'
+          delay: '1m'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$GP.QDRANT.URL}'
+          headers:
+            - name: 'api-key'
+              value: '{$GP.QDRANT.APIKEY}'
+        - uuid: bc22c75a4e9d4fbd97346c7d842c35d2
+          name: 'qdrant: recovery mode'
+          type: DEPENDENT
+          key: 'gp.qdrant.recovery'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.qdrant.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'app_status_recovery_mode'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: b2bf06ca02964094a63993243aa127db
+              expression: 'last(/GuardPrompt Platform/gp.qdrant.recovery)=1'
+              name: 'qdrant started in RECOVERY mode (vector DB degraded)'
+              priority: HIGH
+              description: |
+                Meaning: qdrant booted in RECOVERY mode (interrupted write / corruption / prior OOM); reads and writes may be degraded.
+                Fix: docker logs qdrant; ensure free disk and do a clean restart; if it persists, restore the collection from a snapshot. Do not ignore.
+            - uuid: a3ff52e9e9274bdea074a780e3aa6cf6
+              expression: 'nodata(/GuardPrompt Platform/gp.qdrant.recovery,10m)=1'
+              name: 'qdrant /metrics not answering (source down or wrong api-key)'
+              priority: HIGH
+              description: |
+                Cause: qdrant /metrics is not answering; the container is down OR the api-key macro is wrong (401).
+                Fix: docker compose ps qdrant; docker logs qdrant; verify {$GP.QDRANT.APIKEY} equals QDRANT_API_KEY in .env; test: curl -H 'api-key: <key>' {$GP.QDRANT.URL}.
+        - uuid: 28603fdcd6c5458bb60ced37e37de3b1
+          name: 'qdrant: update queue length (indexing backlog)'
+          type: DEPENDENT
+          key: 'gp.qdrant.queue'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.qdrant.metrics'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                    var t=0,L=value.split(String.fromCharCode(10)),i;
+                    for(i=0;i<L.length;i++){if(L[i].indexOf('collection_update_queue_length')===0){var q=L[i].split(' ');t+=parseFloat(q[q.length-1]);}}
+                    return t;
+          triggers:
+            - uuid: 60cf668396354864a009e5ebc648aefd
+              expression: 'min(/GuardPrompt Platform/gp.qdrant.queue,10m)>{$GP.QDRANT.QUEUE.MAX}'
+              name: 'qdrant indexing backlog (writes outpacing indexing -> stale RAG)'
+              priority: AVERAGE
+              description: |
+                Cause: pending update-queue operations are piling up; indexing cannot keep up, so RAG returns stale or missing results.
+                Fix: check ingestion rate and collection_running_optimizations; check GPU/CPU and disk I/O; throttle ingestion or let it drain; scale qdrant if chronic.
+        - uuid: cf32484146c544b6bff09f934f5a76f0
+          name: 'qdrant: dead shard replicas'
+          type: DEPENDENT
+          key: 'gp.qdrant.dead_replicas'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.qdrant.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'collection_dead_replicas'
+                - 'value'
+                - ''
+          triggers:
+            - uuid: 276086cb07ee49118f250315d767f1a2
+              expression: 'last(/GuardPrompt Platform/gp.qdrant.dead_replicas)>0'
+              name: 'qdrant has dead shard replicas (data availability risk)'
+              priority: HIGH
+              description: |
+                Cause: one or more shard replicas are non-active; data availability is at risk.
+                Fix: docker logs qdrant; check disk and restart; verify the storage volume health.
+        - uuid: bb29f5740f7d4b8192c0fd2e00c1d998
+          name: 'qdrant: total vectors'
+          type: DEPENDENT
+          key: 'gp.qdrant.vectors'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.qdrant.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'collections_vector_total'
+                - 'value'
+                - ''
+        - uuid: 82dfd7ef9a9e407e9591e7c8f9148af0
+          name: 'qdrant: resident memory bytes'
+          type: DEPENDENT
+          key: 'gp.qdrant.mem'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.qdrant.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'memory_resident_bytes'
+                - 'value'
+                - ''
+
+        # ---- USAGE rollup ---------------------------------------------------
+        - uuid: f4353be505b3432e9a7262c68cad2300
+          name: 'usage: active users (24h)'
+          type: DEPENDENT
+          key: 'gp.usage.dau'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_usage_totals_dau'
+                - 'value'
+                - ''
+        - uuid: e2bde8d85ade4f8f98556e942891f6de
+          name: 'usage: requests (24h)'
+          type: DEPENDENT
+          key: 'gp.usage.req24h'
+          value_type: FLOAT
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'gp_usage_totals_requests_24h'
+                - 'value'
+                - ''
+
+      # ---- LLD: per-user usage (auto-discovers user_id labels) --------------
+      discovery_rules:
+        - uuid: b010c243f65548348f760b4093f0d2bb
+          name: 'Per-user usage discovery'
+          type: DEPENDENT
+          key: 'gp.usage.users.discovery'
+          master_item:
+            key: 'gp.pg.metrics'
+          preprocessing:
+            - type: PROMETHEUS_TO_JSON
+              parameters:
+                - 'gp_usage_by_user_requests'
+          lld_macro_paths:
+            - lld_macro: '{#USER}'
+              path: '$.labels.user_id'
+          item_prototypes:
+            - uuid: 3164faea12684857bc4621e321769049
+              name: 'usage: requests 24h [{#USER}]'
+              type: DEPENDENT
+              key: 'gp.usage.user.req[{#USER}]'
+              value_type: FLOAT
+              master_item:
+                key: 'gp.pg.metrics'
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'gp_usage_by_user_requests{user_id="{#USER}"}'
+                    - 'value'
+                    - ''
+            - uuid: 614e7546f6c24400b3ba0524d6f462f8
+              name: 'usage: masked spans 24h [{#USER}]'
+              type: DEPENDENT
+              key: 'gp.usage.user.masked[{#USER}]'
+              value_type: FLOAT
+              master_item:
+                key: 'gp.pg.metrics'
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'gp_usage_by_user_masked_spans{user_id="{#USER}"}'
+                    - 'value'
+                    - ''
+

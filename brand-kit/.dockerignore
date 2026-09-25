@@ -1,0 +1,12 @@
+# `COPY . /app/` needs sync.py + the pyarmor_runtime_* package (protected build).
+# Keep secrets and junk OUT of the build context.
+machine_key.txt
+*_token.txt
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+.git
+*.md
+*.log

@@ -1,0 +1,5 @@
+{
+  "_comment": "Per-deployment branding. The installer copies this to brand.json if that file is missing. brand.json and client-logo.svg are gitignored and excluded from publish, so a customer's name/logo never reaches the repository and survives 'git reset --hard' (untracked files are not touched). To brand a deployment: edit brand.json and replace client-logo.svg.",
+  "name": "GuardPrompt",
+  "logo": ""
+}
