@@ -1,0 +1,8 @@
+# Keep secrets/junk out of the COPY . . build context.
+.env
+*.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+README.md

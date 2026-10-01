@@ -1,0 +1,5 @@
+{
+  "clientId": "3d49e64d-b308-451f-a958-d916ba1535f7",
+  "tenantId": "a0e02da1-0b5f-4060-a056-de67a23e5b1d",
+  "scopes": "User.Read Mail.Read Files.Read.All Sites.Read.All"
+}

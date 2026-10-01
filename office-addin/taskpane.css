@@ -1,0 +1,42 @@
+:root{
+  --gp-accent:#2563eb;
+  --bg:#ffffff; --fg:#1f2328; --muted:#6b7280; --line:#e5e7eb; --err:#b91c1c;
+  --a-bg:#f3f4f6;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#1f2328; --fg:#e6e6e6; --muted:#9aa0a6; --line:#33383d; --a-bg:#2a2f34; }
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; background:var(--bg); color:var(--fg);
+  font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; }
+body{ display:flex; flex-direction:column; }
+header{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 10px; border-bottom:1px solid var(--line); }
+.brandrow{ display:flex; align-items:center; gap:6px; min-width:0; }
+.brandlogo{ height:20px; display:none; }
+.brand{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.modelrow select{ max-width:130px; background:var(--bg); color:var(--fg);
+  border:1px solid var(--line); border-radius:6px; padding:3px 6px; }
+main#log{ flex:1; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.msg{ padding:8px 10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; }
+.msg.u{ background:var(--gp-accent); color:#fff; align-self:flex-end; max-width:90%; }
+.msg.a{ background:var(--a-bg); align-self:flex-start; max-width:95%; }
+.msg.err{ background:#fee2e2; color:var(--err); }
+section#actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px;
+  border-top:1px solid var(--line); }
+.act{ padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg);
+  color:var(--fg); cursor:pointer; font-size:13px; text-align:left; }
+.act:hover{ border-color:var(--gp-accent); }
+.act:disabled{ opacity:.5; cursor:default; }
+.act.wide{ grid-column:1 / -1; text-align:center; border-color:var(--gp-accent); font-weight:600; }
+.src{ font-size:12px; color:var(--muted); margin-top:4px; }
+.src a{ color:var(--gp-accent); }
+footer{ padding:8px 10px; border-top:1px solid var(--line); }
+textarea#q{ width:100%; resize:vertical; background:var(--bg); color:var(--fg);
+  border:1px solid var(--line); border-radius:8px; padding:6px; }
+.btnrow{ display:flex; gap:6px; margin-top:6px; }
+#send{ flex:1; padding:8px; border:0; border-radius:8px; background:var(--gp-accent);
+  color:#fff; cursor:pointer; }
+.stopbtn{ background:#6b7280; }
+.hidden{ display:none; }
+.muted{ color:var(--muted); font-size:12px; margin:6px 0 0; }
