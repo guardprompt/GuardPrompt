@@ -1,0 +1,20 @@
+# Applies to builds whose context is the repo root (docling-serve).
+# Keeps the build context small/fast — DO NOT ignore *.py (docling_api.py is COPYied).
+.git
+.gitattributes
+# Never bake secrets into an image layer if this context is ever reused.
+.env
+.env.*
+*.bak
+*.bak.*
+*.log
+__pycache__/
+**/__pycache__/
+.pyarmor/
+models_cache/
+cache/
+uploads/
+whisperlivekit/
+docling/
+*.md
+*.txt

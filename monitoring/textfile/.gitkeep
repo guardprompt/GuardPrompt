@@ -1,0 +1,4 @@
+# node-exporter textfile collector drop-dir. The host cron writes *.prom here
+# (see ../gpu-license-textfile.sh). node-exporter mounts this dir read-only.
+# The generated *.prom files are gitignored; this .gitkeep keeps the dir present
+# so the compose bind-mount exists on a fresh clone.

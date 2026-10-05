@@ -1,0 +1,19 @@
+# The Dockerfile uses `COPY . .`; this ignore file keeps secrets and junk OUT of the
+# build context so they can never be baked into an image layer.
+machine_key.txt
+*_token.txt
+license_fail_count.txt
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+.git
+.gitignore
+*.md
+*.webm
+*.log
+# HF cache / converted models are baked by convert_model.py at build time or mounted
+# as a volume at runtime — never copy a local cache into the context.
+.cache/
+models/

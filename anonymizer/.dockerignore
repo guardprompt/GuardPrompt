@@ -1,0 +1,7 @@
+# Per-machine license key — generated on the host, bind-mounted read-only at
+# runtime. Never bake it into the image (would ship one machine's key to all).
+machine_key.txt
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
