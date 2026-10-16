@@ -1,0 +1,5 @@
+{
+  "_comment": "Susitikimų protokolo numatytieji nustatymai (adminas redaguoja). defaultModel: OpenWebUI modelio ID ARBA pavadinimo fragmentas (pvz. 'Konspektuotojas'); page suras jį /api/models sąraše. prompt: numatytas nurodymas modeliui (tuščias = naudoti įmontuotą). Šis failas kopijuojamas į protokolas.config.json (gitignore) diegiant; keisk realų failą.",
+  "defaultModel": "Konspektuotojas",
+  "prompt": ""
+}

@@ -1,0 +1,80 @@
+# Custom postgres_exporter queries — usage + audit-table health for GuardPrompt.
+# Loaded via PG_EXPORTER_EXTEND_QUERY_PATH. Built-in collectors already give
+# connections, per-DB size, pg_stat_database, etc.; these add the business/usage
+# metrics (from gp_audit) and the bloat signals the leak triggers need.
+
+# Per-user activity, last 24h. user_id is a LABEL -> Zabbix LLD discovers users.
+# gp_audit.user_id is a per-SESSION JSON blob {device_id, account_uuid, session_id}.
+# Grouping by it raw makes one series PER SESSION: cardinality explodes and every
+# session that ages out of the 24h window turns its Zabbix LLD item "not supported"
+# ("no matching metrics found"). We collapse to the STABLE account_uuid (one series
+# per person). We keep the LABEL NAME `user_id` so the Zabbix template LLD/pattern
+# needs no change — only its VALUE becomes the bare account UUID.
+# The UUID is pulled with a regex (not ::jsonb) so a legacy non-JSON user_id can't
+# throw and abort the whole scrape; it then falls back to the raw value.
+gp_usage_by_user:
+  query: >
+    SELECT COALESCE(substring(user_id from '"account_uuid":"([0-9a-fA-F-]{36})"'),
+                    user_id, 'unknown')  AS user_id,
+           count(*)                      AS requests,
+           COALESCE(sum(masked_spans),0) AS masked_spans
+    FROM gp_audit
+    WHERE ts > now() - interval '24 hours'
+    GROUP BY COALESCE(substring(user_id from '"account_uuid":"([0-9a-fA-F-]{36})"'),
+                      user_id, 'unknown')
+  metrics:
+    - user_id:      { usage: "LABEL",  description: "developer identity (account_uuid)" }
+    - requests:     { usage: "GAUGE",  description: "proxy requests in last 24h" }
+    - masked_spans: { usage: "GAUGE",  description: "values masked in last 24h" }
+
+# Platform usage rollup.
+gp_usage_totals:
+  query: >
+    SELECT
+      -- DISTINCT accounts (extracted from the per-session user_id JSON), NOT distinct
+      -- sessions — otherwise DAU/WAU count every session and massively over-report.
+      (SELECT count(DISTINCT substring(user_id from '"account_uuid":"([0-9a-fA-F-]{36})"'))
+         FROM gp_audit WHERE ts > now() - interval '24 hours') AS dau,
+      (SELECT count(DISTINCT substring(user_id from '"account_uuid":"([0-9a-fA-F-]{36})"'))
+         FROM gp_audit WHERE ts > now() - interval '7 days')   AS wau,
+      (SELECT count(*)                FROM gp_audit WHERE ts > now() - interval '24 hours')  AS requests_24h
+  metrics:
+    - dau:          { usage: "GAUGE", description: "distinct users last 24h" }
+    - wau:          { usage: "GAUGE", description: "distinct users last 7d" }
+    - requests_24h: { usage: "GAUGE", description: "total requests last 24h" }
+
+# Audit-table health: size + bloat (dead tuples from the prune DELETEs). Feeds
+# the capacity + leak/bloat triggers.
+gp_audit_health:
+  query: >
+    SELECT
+      pg_total_relation_size('gp_audit')                                            AS bytes,
+      (SELECT count(*) FROM gp_audit)                                               AS rows,
+      COALESCE((SELECT n_dead_tup FROM pg_stat_user_tables WHERE relname='gp_audit'), 0) AS dead_tuples,
+      COALESCE((SELECT n_live_tup FROM pg_stat_user_tables WHERE relname='gp_audit'), 0) AS live_tuples,
+      COALESCE(EXTRACT(EPOCH FROM (now() -
+        (SELECT last_autovacuum FROM pg_stat_user_tables WHERE relname='gp_audit'))), -1) AS autovacuum_age_seconds
+  metrics:
+    - bytes:                  { usage: "GAUGE", description: "gp_audit total size bytes" }
+    - rows:                   { usage: "GAUGE", description: "gp_audit row count" }
+    - dead_tuples:            { usage: "GAUGE", description: "gp_audit dead tuples (bloat)" }
+    - live_tuples:            { usage: "GAUGE", description: "gp_audit live tuples" }
+    - autovacuum_age_seconds: { usage: "GAUGE", description: "seconds since last autovacuum (-1 = never)" }
+
+# Vault size (real values — keep an eye on growth; separate from audit).
+gp_vault_health:
+  query: >
+    SELECT pg_total_relation_size('gp_vault') AS bytes,
+           (SELECT count(*) FROM gp_vault)    AS rows
+  metrics:
+    - bytes: { usage: "GAUGE", description: "gp_vault total size bytes" }
+    - rows:  { usage: "GAUGE", description: "gp_vault row count" }
+
+# Idle-in-transaction — a classic connection-leak / stuck-transaction signal.
+gp_pg_idle_in_tx:
+  query: >
+    SELECT count(*) AS connections
+    FROM pg_stat_activity
+    WHERE state = 'idle in transaction'
+  metrics:
+    - connections: { usage: "GAUGE", description: "idle-in-transaction connections" }

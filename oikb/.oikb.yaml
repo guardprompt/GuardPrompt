@@ -1,0 +1,30 @@
+# oikb — Open WebUI Knowledge Base Sync
+# Connector auth (CONFLUENCE_*, JIRA_*, SHAREPOINT_*) comes from environment
+# variables (set in .env / compose) — do NOT put secrets here.
+#
+# kb-id = the target Knowledge Base ID in Open WebUI.
+#   Get it: create a KB in Open WebUI, then `oikb status` / `oikb ls`,
+#   or copy it from the KB page URL.
+
+defaults:
+  interval: 1h
+  concurrency: 2
+
+sources:
+  # --- Confluence (start here: easiest auth = Atlassian API token) ---
+  - name: confluence-docs
+    source: confluence:65857         # Software Development space (numeric space ID, NOT key "SD")
+    kb-id: b25088fc-6ad5-4fd1-af7c-09e41dc80c36   # Confluence SD KB
+    interval: "0 6 * * 1-5"          # weekdays 06:00
+
+  # --- Jira (same Atlassian token type) ---
+  # - name: jira-proj
+  #   source: "jira:PROJ?limit=500"  # <-- replace PROJ with project key
+  #   kb-id: REPLACE_WITH_KB_ID
+  #   interval: "0 7 * * 1-5"
+
+  # --- SharePoint (needs Azure app registration + admin consent) ---
+  # - name: sharepoint-docs
+  #   source: sharepoint:mysite/Documents
+  #   kb-id: REPLACE_WITH_KB_ID
+  #   interval: "0 8 * * 1-5"

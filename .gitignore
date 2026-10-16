@@ -1,0 +1,4 @@
+.env
+*.log
+machine_key.txt
+**/machine_key.txt

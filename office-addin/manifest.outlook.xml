@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GuardPrompt Add-in — Outlook. Outlook uses the MailApp manifest shape (different
+     from Word's TaskPaneApp), so it is a SEPARATE file. The unified JSON manifest later
+     merges Word + Outlook + Teams into one package; for a testable POC these two classic
+     manifests are the reliable path.
+
+     BEFORE USE, replace __ADDIN_GUID__ (fresh GUID, DIFFERENT from the Word one) and
+     __HOST__ (OWUI/guardproxy HTTPS host serving /officeaddin/, same origin as OWUI).
+
+     NOTE: this pane only calls the GuardPrompt proxy; it does NOT use EWS, so the
+     2026-10-01 EWS shutdown for Outlook add-ins does not affect it. -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+  <Id>__ADDIN_GUID__</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>GuardPrompt</ProviderName>
+  <DefaultLocale>lt-LT</DefaultLocale>
+  <DisplayName DefaultValue="GuardPrompt AI" />
+  <Description DefaultValue="Anonimizuojantis AI asistentas laiškams." />
+  <IconUrl DefaultValue="https://__HOST__/officeaddin/assets/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://__HOST__/officeaddin/assets/icon-128.png" />
+  <SupportUrl DefaultValue="https://__HOST__/" />
+  <AppDomains>
+    <AppDomain>https://__HOST__</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.5" />
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://__HOST__/officeaddin/taskpane.html" />
+        <RequestedHeight>320</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  <Permissions>ReadWriteItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read" />
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit" />
+  </Rule>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.5">
+        <bt:Set Name="Mailbox" />
+      </bt:Sets>
+    </Requirements>
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url" />
+          <!-- Button on the message READ surface -->
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="Gp.Msg.Group">
+                <Label resid="Gp.Group.Label" />
+                <Control xsi:type="Button" id="Gp.Msg.Open">
+                  <Label resid="Gp.Taskpane.Label" />
+                  <Supertip>
+                    <Title resid="Gp.Taskpane.Label" />
+                    <Description resid="Gp.Taskpane.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+          <!-- Button on the message COMPOSE surface (write a reply/new mail) -->
+          <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="Gp.Cmp.Group">
+                <Label resid="Gp.Group.Label" />
+                <Control xsi:type="Button" id="Gp.Cmp.Open">
+                  <Label resid="Gp.Taskpane.Label" />
+                  <Supertip>
+                    <Title resid="Gp.Taskpane.Label" />
+                    <Description resid="Gp.Taskpane.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://__HOST__/officeaddin/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://__HOST__/officeaddin/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://__HOST__/officeaddin/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Commands.Url" DefaultValue="https://__HOST__/officeaddin/commands.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://__HOST__/officeaddin/taskpane.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="Gp.Group.Label" DefaultValue="GuardPrompt" />
+        <bt:String id="Gp.Taskpane.Label" DefaultValue="GuardPrompt AI" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="Gp.Taskpane.Tooltip" DefaultValue="Atverti GuardPrompt AI panelę" />
+      </bt:LongStrings>
+    </Resources>
+    <!-- SSO — see the Word manifest note. Replace __ENTRA_CLIENT_ID__ + __HOST__. -->
+    <WebApplicationInfo>
+      <Id>__ENTRA_CLIENT_ID__</Id>
+      <Resource>api://__HOST__/__ENTRA_CLIENT_ID__</Resource>
+      <Scopes>
+        <Scope>access_as_user</Scope>
+      </Scopes>
+    </WebApplicationInfo>
+  </VersionOverrides>
+</OfficeApp>
