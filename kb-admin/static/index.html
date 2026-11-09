@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Žinių bazių pultas</title>
+  <style>
+    :root{
+      --bg:#f4f5f7; --surface:#ffffff; --surface-2:#f9fafb; --border:#e5e7eb; --border-2:#d1d5db;
+      --text:#1f2430; --muted:#6b7280; --accent:#2563eb; --accent-hover:#1d4ed8;
+      --ok:#137333; --ok-bg:#e6f4ea; --bad:#c5221f; --bad-bg:#fce8e6; --warn:#8a5a00; --warn-bg:#fef3e0;
+      --radius:12px;
+    }
+    *{ box-sizing:border-box; }
+    body{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; margin:0; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+    header{ padding:14px 24px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    h1{ font-size:17px; font-weight:600; margin:0; display:flex; align-items:center; gap:8px; }
+    h2{ font-size:15px; font-weight:600; margin:0; }
+    main{ padding:24px; max-width:1280px; margin:0 auto; }
+    .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; margin-bottom:18px; }
+    .muted{ color:var(--muted); font-size:13px; }
+    label{ display:block; font-size:13px; color:var(--muted); margin:0 0 5px; font-weight:500; }
+    input,select,button{ font:inherit; padding:9px 11px; border-radius:8px; border:1px solid var(--border-2); background:var(--surface); color:var(--text); outline:none; }
+    input:focus,select:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+    button{ background:var(--surface); cursor:pointer; font-weight:500; }
+    button:hover{ background:var(--surface-2); }
+    button:disabled{ opacity:.5; cursor:not-allowed; }
+    button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+    button.primary:hover{ background:var(--accent-hover); }
+    button.sm{ padding:5px 9px; font-size:13px; }
+    button.icon{ padding:5px 8px; }
+    nav.menu{ display:flex; gap:2px; }
+    .nav{ background:none; border:none; padding:7px 12px; border-radius:8px; color:var(--muted); font-weight:500; }
+    .nav:hover{ background:var(--surface-2); color:var(--text); }
+    .nav.on{ background:#eff4ff; color:var(--accent); }
+    .view{ display:none; } .view.on{ display:block; }
+    .about h3{ font-size:14px; margin:18px 0 6px; } .about p{ margin:0 0 10px; } .about ul{ margin:0 0 10px; padding-left:20px; } .about li{ margin:3px 0; }
+    table{ width:100%; border-collapse:collapse; }
+    th{ text-align:left; padding:9px 10px; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border); }
+    td{ padding:11px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tbody tr:last-child td{ border-bottom:none; }
+    tbody tr:hover{ background:var(--surface-2); }
+    .pill{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+    .pill.ok{ background:var(--ok-bg); color:var(--ok); }
+    .pill.bad{ background:var(--bad-bg); color:var(--bad); }
+    .pill.warn{ background:var(--warn-bg); color:var(--warn); }
+    .pill.off{ background:#eef0f2; color:#6b7280; }
+    a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+    .help{ display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; background:#e5e7eb; color:#6b7280; font-size:11px; font-weight:700; cursor:help; margin-left:4px; }
+    /* switch */
+    .switch{ position:relative; display:inline-block; width:38px; height:22px; vertical-align:middle; }
+    .switch input{ display:none; }
+    .switch span{ position:absolute; inset:0; background:#cbd0d6; border-radius:999px; transition:.15s; }
+    .switch span:before{ content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; }
+    .switch input:checked + span{ background:var(--accent); }
+    .switch input:checked + span:before{ transform:translateX(16px); }
+    /* modal */
+    .backdrop{ position:fixed; inset:0; background:rgba(15,18,24,.45); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:50; overflow:auto; }
+    .modal{ background:var(--surface); border-radius:14px; width:100%; max-width:620px; padding:0; box-shadow:0 16px 48px rgba(0,0,0,.25); }
+    .modal-head{ padding:18px 22px; border-bottom:1px solid var(--border); }
+    .modal-body{ padding:18px 22px; }
+    .modal-foot{ padding:14px 22px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .row{ margin:0 0 16px; }
+    /* wizard steps */
+    .steps{ display:flex; gap:8px; margin-top:10px; }
+    .steps .s{ flex:1; padding:8px 10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border); font-size:12.5px; color:var(--muted); }
+    .steps .s.active{ border-color:var(--accent); color:var(--accent); background:#eff4ff; font-weight:600; }
+    .steps .s.done{ color:var(--ok); }
+    .typepills{ display:flex; gap:6px; margin-bottom:12px; }
+    .typepills button{ flex:1; }
+    .typepills button.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+    .reslist .ri{ display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; }
+    .reslist .ri.sel{ border-color:var(--accent); background:#eff4ff; }
+    .concept{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin:6px 0 14px; }
+    .concept .c{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; text-align:center; min-width:96px; }
+    #login{ max-width:400px; margin:9vh auto; padding:0; overflow:hidden; }
+    #login .lhead{ background:#0f172a; color:#fff; padding:26px 28px 22px; text-align:center; }
+    #login .badge2{ width:46px; height:46px; border-radius:12px; background:var(--accent); color:#fff; font-weight:700; font-size:18px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
+    #login .lhead h1{ font-size:18px; color:#fff; justify-content:center; }
+    #login .lbody{ padding:22px 28px 26px; }
+    #login .chips{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; }
+    #login .chip{ background:rgba(255,255,255,.12); color:#cbd5e1; font-size:11.5px; line-height:1.4; padding:4px 10px; border-radius:6px; white-space:nowrap; }
+    .empty{ text-align:center; padding:18px 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login">
+    <div style="text-align:center; margin:0 0 18px"><img src="/static/logo.png" alt="GuardPrompt" style="max-height:54px; max-width:220px"></div>
+    <div class="card" style="overflow:hidden">
+    <div class="lhead">
+      <h1>Žinių bazių pultas</h1>
+      <div class="chips"><span class="chip">Confluence</span><span class="chip">Jira</span><span class="chip">SharePoint</span><span class="chip">→ OpenWebUI</span></div>
+    </div>
+    <div class="lbody">
+      <p class="muted" style="margin:0 0 16px; text-align:center">Prijunk įmonės turinį prie OpenWebUI — kad darbuotojai jo klaustų pokalbiuose, o turinys atsinaujintų automatiškai.</p>
+      <div class="row"><label>El. paštas (OpenWebUI administratoriaus)</label><input id="email" placeholder="vardas@imone.lt" style="width:100%" onkeydown="if(event.key==='Enter')login()"></div>
+      <div class="row"><label>Slaptažodis</label><input id="password" type="password" style="width:100%" onkeydown="if(event.key==='Enter')login()"></div>
+      <button class="primary" onclick="login()" style="width:100%">Prisijungti</button>
+      <p id="loginErr" style="color:var(--bad); margin-top:10px; text-align:center"></p>
+    </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none">
+    <header>
+      <h1>Žinių bazių pultas</h1>
+      <div style="display:flex; align-items:center; gap:14px">
+        <nav class="menu">
+          <button class="nav on" data-v="kb" onclick="showView('kb')">Žinių bazės</button>
+          <button class="nav" data-v="kbgroups" onclick="showView('kbgroups')">Grupinės KB</button>
+          <button class="nav" data-v="brandkit" onclick="showView('brandkit')">Prezentacijų brand'as</button>
+          <button class="nav" data-v="audit" onclick="showView('audit')">Žurnalas</button>
+          <button class="nav" data-v="about" onclick="showView('about')">Apie</button>
+        </nav>
+        <span id="who" class="muted"></span>
+        <button class="secondary sm" onclick="logout()">Atsijungti</button>
+      </div>
+    </header>
+    <main>
+      <!-- ŽINIŲ BAZĖS -->
+      <div id="view-kb" class="view on">
+        <div id="alerts" style="display:none"></div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <h2>Žinių bazės</h2>
+            <button class="primary sm" onclick="openWizard()">+ Pridėti žinių bazę</button>
+          </div>
+          <p class="muted" style="margin:0 0 14px">Kiekviena žinių bazė — tai šaltinis (Confluence erdvė, Jira projektas ar SharePoint katalogas), kuris automatiškai sinchronizuojamas į OpenWebUI.</p>
+          <p style="margin:0 0 14px"><input id="kbq" oninput="renderJobs()" placeholder="Ieškoti pagal pavadinimą ar šaltinį…" style="width:100%"></p>
+          <div id="kbWrap"></div>
+        </div>
+      </div>
+
+      <!-- GRUPINĖS KB -->
+      <div id="view-kbgroups" class="view">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <h2>Grupinės žinių bazės <span class="help" title="Vienas KB, sudarytas iš KELIŲ SharePoint aplankų. Geriau nei daug atskirų KB: OpenWebUI paieška (Top K / reranker) veikia globaliai vienoje kolekcijoje, todėl atsakymai tikslesni.">?</span></h2>
+            <button class="primary sm" onclick="openGwiz()">+ Nauja grupinė KB</button>
+          </div>
+          <p class="muted" style="margin:0 0 14px">Sujunk kelis SharePoint aplankus į <b>vieną</b> žinių bazę. Kiekvienas failas žymimas aplanko vardu (citatose matyti šaltinis), o sinchronizacija atskira kiekvienam aplankui — pridėjus/pašalinus aplanką kiti failai nepaliečiami.</p>
+          <div id="gWrap"></div>
+        </div>
+      </div>
+
+      <!-- PREZENTACIJŲ BRAND'AS -->
+      <div id="view-brandkit" class="view">
+        <div class="card">
+          <h2>Prezentacijų brand'as <span class="help" title="Oficialūs vizualinės tapatybės failai (logotipai, PPT šablonai, nuotraukos) iš SharePoint. NE žinių bazė — failai netraukiami į RAG ir NEanonimizuojami.">?</span></h2>
+          <p class="muted" style="margin:0 0 14px">Sinchronizuoja oficialius vizualinės tapatybės failus iš SharePoint bibliotekos į prezentacijų įrankį (gpdeck). Failai naudojami kaip nuotraukos/šablonai skaidrėse. <b>Netraukiama į žinių bazę ir neanonimizuojama</b> — brand'as yra viešas.</p>
+          <div id="bkNoSp" class="muted" style="display:none; padding:10px; background:#fff3f3; border-radius:8px">SharePoint nesukonfigūruotas (SHAREPOINT_* env). Sukonfigūruok, kad galėtum sinchronizuoti.</div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:8px">
+            <div>
+              <h3 style="margin:0 0 8px">1. Pasirink SharePoint site</h3>
+              <p style="margin:0 0 8px"><input id="bkQ" placeholder="Ieškoti arba įklijuok site URL…" style="width:70%" oninput="bkSearch()"> </p>
+              <div id="bkSites" style="max-height:150px; overflow:auto"></div>
+              <div id="bkChosen" style="margin-top:10px; display:none">
+                <p style="margin:0 0 6px">Site: <b id="bkSiteName"></b></p>
+                <p style="margin:0 0 6px">Biblioteka: <select id="bkLib" style="width:60%"></select></p>
+                <p style="margin:0 0 6px">Katalogas (nebūtina): <input id="bkFolder" placeholder="pvz. Vizualinis identitetas" style="width:60%"></p>
+                <button class="primary sm" onclick="bkSave()">Išsaugoti</button>
+              </div>
+            </div>
+            <div>
+              <h3 style="margin:0 0 8px">2. Sinchronizuok</h3>
+              <div id="bkStatus" class="muted">Kraunama…</div>
+              <p style="margin:12px 0 0"><button id="bkSyncBtn" class="primary sm" onclick="bkSync()">Sinchronizuoti dabar</button>
+                <button class="secondary sm" onclick="bkLoad()">Atnaujinti</button></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ŽURNALAS -->
+      <div id="view-audit" class="view">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+            <h2>Žurnalas <span class="help" title="Kas, kada ir ką darė: kūrimas, atnaujinimai, klaidos, prieigos keitimai.">?</span></h2>
+            <button class="secondary sm" onclick="loadAudit()">Atnaujinti</button>
+          </div>
+          <p style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 12px">
+            <input id="aActor" oninput="renderAudit()" placeholder="adminas…" style="width:130px">
+            <select id="aAction" onchange="renderAudit()"><option value="">visi veiksmai</option></select>
+            <input id="aKb" oninput="renderAudit()" placeholder="žinių bazė…" style="width:150px">
+          </p>
+          <table><thead><tr><th>Laikas</th><th>Adminas</th><th>Veiksmas</th><th>Žinių bazė</th><th>Detalės</th></tr></thead><tbody id="audit"></tbody></table>
+          <p id="auditMsg" class="muted"></p>
+        </div>
+      </div>
+
+      <!-- APIE -->
+      <div id="view-about" class="view">
+        <div class="card about">
+          <h2>Apie įrankį</h2>
+          <h3>Kas tai per įrankis</h3>
+          <p>Tai valdymo pultas OpenWebUI administratoriui. Jis leidžia paimti turinį iš įmonės sistemų — <b>Confluence</b>, <b>Jira</b>, <b>SharePoint</b> — ir padaryti, kad tas turinys atsirastų OpenWebUI kaip „žinių bazė", su kuria darbuotojai gali kalbėtis (klausti, ieškoti atsakymų pokalbyje).</p>
+          <h3>Kokią problemą sprendžia</h3>
+          <p>Anksčiau, kad dokumentai iš SharePoint ar puslapiai iš Confluence atsidurtų OpenWebUI, reikėjo rankiniu būdu juos kelti ir nuolat atnaujinti. Mūsų įrankis tai daro <b>automatiškai ir pastoviai</b>: pasirenki šaltinį vieną kartą — ir jis pats nuolat sinchronizuojasi.</p>
+          <h3>Ką realiai daro administratorius (3 veiksmai)</h3>
+          <ul>
+            <li><b>Pasirenka šaltinį</b> — pvz. SharePoint katalogą „Sutartys", Confluence erdvę arba Jira projektą.</li>
+            <li><b>Nustato, kas matys</b> — visi, konkreti grupė, ar pavieniai žmonės (iš OpenWebUI vartotojų).</li>
+            <li><b>Nustato, kaip dažnai atsinaujins</b> — pvz. kas valandą.</li>
+          </ul>
+          <h3>Po to įrankis pats</h3>
+          <ul>
+            <li>nukopijuoja turinį į OpenWebUI žinių bazę;</li>
+            <li>paverčia dokumentus tekstu (per docling), anonimizuoja jei reikia;</li>
+            <li>nuolat tikrina pakeitimus: pridėtas failas → atsiranda, pakeistas → atsinaujina, ištrintas → dingsta (ir iš paieškos vektorių);</li>
+            <li>jei šaltinis ar katalogas ištrinamas — žinių bazė pati pasišalina;</li>
+            <li>viską rašo į žurnalą (kas, kada, ką darė), o problemas rodo įspėjimuose.</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- WIZARD -->
+  <div id="wiz" class="backdrop" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="wizTitle">Nauja žinių bazė</h2>
+        <div class="steps">
+          <div class="s" id="wstepi1">1 · Šaltinis <span class="help" title="Iš kur imamas turinys.">?</span></div>
+          <div class="s" id="wstepi2">2 · Kam matoma <span class="help" title="Kurie OpenWebUI vartotojai matys šią žinių bazę.">?</span></div>
+          <div class="s" id="wstepi3">3 · Atnaujinimas <span class="help" title="Pavadinimas ir kaip dažnai tikrinti pakeitimus.">?</span></div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <!-- STEP 1 -->
+        <div id="wstep1">
+          <div class="typepills" id="wTypes">
+            <button data-t="confluence" onclick="wType('confluence')">Confluence</button>
+            <button data-t="jira" onclick="wType('jira')">Jira</button>
+            <button data-t="sharepoint" onclick="wType('sharepoint')">SharePoint</button>
+          </div>
+          <div id="wSrcInfo" class="muted" style="display:none; padding:10px; background:var(--surface-2); border-radius:8px; margin-bottom:12px"></div>
+          <input id="wq" placeholder="Ieškoti (min. 2 simboliai) arba įklijuok site URL…" style="width:100%" oninput="wSearch()">
+          <p id="wMsg" class="muted" style="margin:8px 0"></p>
+          <div id="wResults" class="reslist"></div>
+          <!-- sharepoint folder picker -->
+          <div id="wSpWrap" style="display:none; margin-top:12px">
+            <label>Dokumentų biblioteka</label>
+            <select id="wLib" onchange="spBrowse('')" style="min-width:240px"></select>
+            <div id="wFolderWrap" style="display:none; margin-top:10px">
+              <label>Katalogas (nebūtina — tuščia = visa biblioteka)</label>
+              <div id="wCrumb" style="margin-bottom:6px"></div>
+              <div id="wFolderList" style="max-height:180px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:8px"></div>
+              <div class="muted" style="margin-top:6px">Sinchronizuoti: <b id="wFolderSel" style="color:var(--text)">(visa biblioteka)</b></div>
+            </div>
+          </div>
+          <p id="wPick" class="muted" style="margin-top:10px"></p>
+        </div>
+        <!-- STEP 2 -->
+        <div id="wstep2" style="display:none">
+          <div class="row">
+            <label>Kam matoma ši žinių bazė?</label>
+            <select id="wAud" onchange="wAudChange()" style="min-width:260px">
+              <option value="private">Tik man (privatu)</option>
+              <option value="all">Visiems darbuotojams</option>
+              <option value="groups">Pasirinktoms grupėms</option>
+              <option value="users">Pasirinktiems asmenims</option>
+            </select>
+          </div>
+          <div class="row" id="wSubjWrap" style="display:none">
+            <label id="wSubjLbl">Pasirink narius</label>
+            <select id="wSubjects" multiple size="6" style="width:100%"></select>
+          </div>
+        </div>
+        <!-- STEP 3 -->
+        <div id="wstep3" style="display:none">
+          <div class="row">
+            <label>Žinių bazės pavadinimas <span class="help" title="Šį pavadinimą matys darbuotojai OpenWebUI.">?</span></label>
+            <input id="wName" style="width:100%">
+          </div>
+          <div class="row">
+            <label>Kaip dažnai tikrinti pakeitimus? <span class="help" title="Kaip dažnai automatiškai sutikrinti šaltinį ir atnaujinti turinį.">?</span></label>
+            <select id="wInterval">
+              <option value="1m">Kas 1 min (testavimui)</option>
+              <option value="10m">Kas 10 min</option>
+              <option value="1h">Kas valandą</option>
+              <option value="4h">Kas 4 val</option>
+              <option value="12h">Kas 12 val</option>
+              <option value="24h" selected>Kartą per parą</option>
+            </select>
+          </div>
+          <div class="muted" id="wSummary" style="background:var(--surface-2); border-radius:8px; padding:10px"></div>
+        </div>
+        <p id="wErr" style="color:var(--bad); margin-top:8px"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="secondary" onclick="closeWiz()">Atšaukti</button>
+        <span style="flex:1"></span>
+        <button class="secondary" id="wBack" onclick="wGo(-1)" style="display:none">Atgal</button>
+        <button class="primary" id="wNext" onclick="wGo(1)">Toliau</button>
+      </div>
+    </div>
+  </div>
+
+<!-- GRUPINĖS KB WIZARD (create + manage) -->
+  <div id="gwiz" class="backdrop" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="gwizTitle">Nauja grupinė žinių bazė</h2>
+        <p class="muted" style="margin:6px 0 0">Keli SharePoint aplankai → viena žinių bazė.</p>
+      </div>
+      <div class="modal-body">
+        <div class="row"><label>Pavadinimas <span class="help" title="Šį pavadinimą matys darbuotojai OpenWebUI.">?</span></label><input id="gName" style="width:100%"></div>
+        <div class="row">
+          <label>Kam matoma?</label>
+          <select id="gAud" onchange="gAudChange()" style="min-width:260px">
+            <option value="private">Tik man (privatu)</option>
+            <option value="all">Visiems darbuotojams</option>
+            <option value="groups">Pasirinktoms grupėms</option>
+            <option value="users">Pasirinktiems asmenims</option>
+          </select>
+        </div>
+        <div class="row" id="gSubjWrap" style="display:none">
+          <label id="gSubjLbl">Pasirink narius</label>
+          <select id="gSubjects" multiple size="5" style="width:100%"></select>
+        </div>
+        <div class="row">
+          <label>Kaip dažnai tikrinti pakeitimus?</label>
+          <select id="gInterval">
+            <option value="1m">Kas 1 min (testavimui)</option>
+            <option value="10m">Kas 10 min</option>
+            <option value="1h">Kas valandą</option>
+            <option value="4h">Kas 4 val</option>
+            <option value="12h">Kas 12 val</option>
+            <option value="24h" selected>Kartą per parą</option>
+          </select>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0">
+        <label>Aplankai <span class="help" title="Pridėk vieną ar daugiau SharePoint aplankų. Visi jų failai (rekursyviai, su pakatalogiais) sugula į šią vieną žinių bazę.">?</span></label>
+
+        <!-- picked list -->
+        <div id="gPicked" style="margin:6px 0 12px"></div>
+
+        <!-- source builder -->
+        <div style="border:1px solid var(--border); border-radius:8px; padding:10px; background:var(--surface-2)">
+          <label style="margin-bottom:6px">Pridėti aplanką iš SharePoint</label>
+          <input id="gSiteQ" placeholder="Ieškok site (min. 2 simboliai) arba įklijuok URL…" style="width:100%" oninput="gSearchSites()">
+          <div id="gSites" style="max-height:110px; overflow:auto; margin-top:6px"></div>
+          <div id="gLibWrap" style="display:none; margin-top:10px">
+            <label>Biblioteka</label>
+            <select id="gLib" onchange="gBrowse('')" style="min-width:220px"></select>
+            <div id="gCrumb" style="margin:8px 0 6px"></div>
+            <div id="gFolderList" style="max-height:170px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:8px; background:var(--surface)"></div>
+          </div>
+        </div>
+        <p id="gErr" style="color:var(--bad); margin-top:8px"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="secondary" onclick="closeGwiz()">Uždaryti</button>
+        <span style="flex:1"></span>
+        <button class="primary" id="gSaveBtn" onclick="gSubmit()">Sukurti</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts||{}));
+  if (r.status===401 || r.status===403){ showLogin(); throw new Error('auth'); }
+  return r;
+}
+function showLogin(){ document.getElementById('login').style.display='block'; document.getElementById('app').style.display='none'; if(window._jt){ clearInterval(window._jt); window._jt=null; } }
+function showApp(){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; }
+function showView(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on', e.id==='view-'+v));
+  document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  if(v==='audit') loadAudit();
+  if(v==='brandkit') bkLoad();
+  if(v==='kbgroups') loadGroups();
+}
+function esc(s){ return (s||'').replace(/[<>&"'`]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c])); }
+function fmtTime(s){ if(!s) return '-'; const d=new Date(s),p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+
+async function login(){
+  const fd=new FormData();
+  fd.append('email', document.getElementById('email').value);
+  fd.append('password', document.getElementById('password').value);
+  const r=await fetch('/api/login',{method:'POST',body:fd,credentials:'same-origin'});
+  if(!r.ok){ document.getElementById('loginErr').textContent=(await r.json()).detail||'Klaida'; return; }
+  init();
+}
+async function logout(){ await fetch('/api/logout',{method:'POST',credentials:'same-origin'}); showLogin(); }
+
+var USERS=[], GROUPS=[], JOBS=[], AUDIT=[], HEALTH={};
+const SRC_LABEL={confluence:'Confluence', jira:'Jira', sharepoint:'SharePoint'};
+const SRC_SHORT={confluence:'CF', jira:'JR', sharepoint:'SP'};
+const AUD_LABEL={all:'Visi darbuotojai', groups:'Grupės', users:'Asmenys', private:'Privatu (tik adminas)'};
+const INT_LABEL={'1m':'kas 1 min','10m':'kas 10 min','1h':'kas valandą','4h':'kas 4 val','12h':'kas 12 val','24h':'kartą per parą'};
+const ST_LABEL={active:'aktyvi', error:'klaida', paused:'pristabdyta', processing:'atnaujinama'};
+
+async function init(){
+  try{
+    const me=await (await api('/api/me')).json();
+    document.getElementById('who').textContent=me.name+' ('+me.role+')';
+    showApp();
+    await loadSubjects();
+    loadHealth(); loadJobs(); loadAudit();
+    if(!window._jt) window._jt=setInterval(loadJobs, 5000);
+  }catch(e){ showLogin(); }
+}
+async function loadHealth(){ try{ HEALTH=await (await api('/api/sources/health')).json(); }catch(e){} }
+async function loadSubjects(){
+  [USERS,GROUPS]=await Promise.all([(await api('/api/users')).json(),(await api('/api/groups')).json()]);
+}
+
+/* ---------- KB list ---------- */
+function srcReadable(j){ return (SRC_LABEL[j.source_type]||j.source_type)+' · '+(j.source_key||j.source_id); }
+async function loadJobs(){ try{ JOBS=await (await api('/api/jobs')).json(); }catch(e){ return; } renderJobs(); }
+function renderJobs(){
+  const wrap=document.getElementById('kbWrap');
+  const qel=document.getElementById('kbq'); const q=qel?qel.value.trim().toLowerCase():'';
+  const list = q ? JOBS.filter(j=> (j.kb_name||'').toLowerCase().includes(q) || srcReadable(j).toLowerCase().includes(q)) : JOBS;
+  if(!JOBS.length){
+    wrap.innerHTML='<div class="empty">'+
+      '<div class="concept">'+
+        '<div class="c"><i class="ti"></i><div style="font-size:12px;margin-top:4px">Šaltinis</div><div class="muted" style="font-size:11px">Confluence/Jira/SharePoint</div></div>'+
+        '<span>→</span>'+
+        '<div class="c"><div style="font-size:12px;margin-top:4px">Žinių bazė</div><div class="muted" style="font-size:11px">OpenWebUI kolekcija</div></div>'+
+        '<span>→</span>'+
+        '<div class="c"><div style="font-size:12px;margin-top:4px">Darbuotojai</div><div class="muted" style="font-size:11px">klausia pokalbyje</div></div>'+
+      '</div>'+
+      '<p class="muted">Dar nėra nė vienos žinių bazės. Priskirk šaltinį — jis virs žinių baze, kurią matys pasirinkti darbuotojai.</p>'+
+      '<button class="primary" onclick="openWizard()">+ Pridėti pirmą žinių bazę</button></div>';
+    return;
+  }
+  if(!list.length){ wrap.innerHTML='<p class="muted">Nieko nerasta pagal „'+esc(q)+'".</p>'; return; }
+  let rows=list.map(j=>{
+    const off=!j.enabled;
+    const stTxt= off ? 'išjungta' : (ST_LABEL[j.status]||j.status);
+    const stCls= off ? 'off' : (j.status==='active'?'ok':(j.status==='error'?'bad':'warn'));
+    const err=j.error_message?('<div class="muted" style="color:var(--bad)">'+esc(j.error_message.slice(0,120))+'</div>'):'';
+    const busy=j.status==='processing';
+    const d=(busy||off)?'disabled':'';
+    return '<tr id="job-'+j.id+'">'+
+      '<td><div style="font-weight:500">'+esc(j.kb_name)+'</div><div class="muted">'+esc(srcReadable(j))+'</div>'+err+'</td>'+
+      '<td>'+esc(AUD_LABEL[j.audience_type]||j.audience_type)+'</td>'+
+      '<td>'+esc(INT_LABEL[j.interval]||j.interval)+'</td>'+
+      '<td><span class="pill '+stCls+'">'+stTxt+'</span></td>'+
+      '<td class="muted">'+fmtTime(j.last_sync_at)+'</td>'+
+      '<td style="white-space:nowrap">'+
+        '<label class="switch" title="Įjungti/išjungti sinchronizavimą"><input type="checkbox" '+(j.enabled?'checked':'')+' onchange="toggleEnabled(\''+j.id+'\',this.checked)"><span></span></label> '+
+        '<button class="sm" '+d+' onclick="jobSync(\''+j.id+'\')" title="Atnaujinti dabar">'+(busy?'…':'Atnaujinti')+'</button> '+
+        '<button class="sm" onclick="openEdit(\''+j.id+'\')">Keisti</button> '+
+        '<button class="sm" onclick="jobDelete(\''+j.id+'\')">Trinti</button>'+
+      '</td></tr>';
+  }).join('');
+  wrap.innerHTML='<table><thead><tr><th>Žinių bazė / šaltinis</th><th>Kam matoma</th><th>Atsinaujina</th><th>Būsena</th><th>Paskutinis</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+async function toggleEnabled(id,val){ await api('/api/jobs/'+id+'/enabled',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:val})}); loadJobs(); }
+async function jobSync(id){ const j=JOBS.find(x=>x.id===id); if(j)j.status='processing'; renderJobs(); await api('/api/jobs/'+id+'/sync',{method:'POST'}); loadJobs(); }
+async function jobDelete(id){ if(!confirm('Ištrinti šią žinių bazę? Turinys bus pašalintas iš OpenWebUI.'))return; await api('/api/jobs/'+id,{method:'DELETE'}); loadJobs(); }
+
+/* ---------- Wizard ---------- */
+var WIZ={step:1, mode:'create', editId:null, res:null};
+function openWizard(){
+  WIZ={step:1, mode:'create', editId:null, res:null};
+  document.getElementById('wizTitle').textContent='Nauja žinių bazė';
+  document.getElementById('wSrcInfo').style.display='none';
+  document.getElementById('wq').style.display='block'; document.getElementById('wq').value='';
+  document.getElementById('wResults').innerHTML=''; document.getElementById('wMsg').textContent='';
+  document.getElementById('wSpWrap').style.display='none'; document.getElementById('wPick').textContent='';
+  document.getElementById('wErr').textContent='';
+  document.getElementById('wTypes').style.display='flex';
+  wType('confluence');
+  wRender();
+  document.getElementById('wiz').style.display='flex';
+}
+async function openEdit(id){
+  const j=JOBS.find(x=>x.id===id); if(!j) return;
+  WIZ={step:2, mode:'edit', editId:id, res:{source_type:j.source_type, source_id:j.source_id, source_key:j.source_key, source_title:j.source_title}};
+  document.getElementById('wizTitle').textContent='Keisti žinių bazę';
+  document.getElementById('wTypes').style.display='none';
+  document.getElementById('wq').style.display='none';
+  document.getElementById('wResults').innerHTML='';
+  document.getElementById('wMsg').textContent='';
+  const info=document.getElementById('wSrcInfo'); info.style.display='block';
+  info.innerHTML='Šaltinis: <b>'+esc(srcReadable(j))+'</b>'+(j.source_type==='sharepoint'?' — gali pakeisti katalogą žemiau.':'');
+  document.getElementById('wPick').textContent='';
+  document.getElementById('wErr').textContent='';
+  // prefill audience + interval + name
+  document.getElementById('wName').value=j.kb_name;
+  document.getElementById('wInterval').value=j.interval;
+  document.getElementById('wAud').value=j.audience_type; wAudChange();
+  const ids=j.audience_ids||[]; Array.from(document.getElementById('wSubjects').options).forEach(o=>o.selected=ids.includes(o.value));
+  // sharepoint folder re-scope
+  document.getElementById('wSpWrap').style.display='none';
+  if(j.source_type==='sharepoint'){
+    const segs=String(j.source_id).split('/'); const site=segs[0], library=segs[1]||'Documents';
+    const fid=segs.slice(2).join('/'); const sk=j.source_key||''; const fpath=sk.indexOf('/')>=0?sk.slice(sk.indexOf('/')+1):'';
+    WIZ.res={source_type:'sharepoint', site_id:site, source_title:j.source_title, folder:fpath, folder_id:fid};
+    document.getElementById('wFolderSel').textContent=fpath||'(visa biblioteka)';
+    try{
+      const libs=await (await api('/api/sources/sharepoint/sites/'+encodeURIComponent(site)+'/libraries')).json();
+      const sel=document.getElementById('wLib'); sel.innerHTML=libs.map(l=>'<option>'+esc(l.name)+'</option>').join(''); sel.value=library;
+      document.getElementById('wSpWrap').style.display='block'; spBrowse('');
+    }catch(e){}
+  }
+  wRender();
+  document.getElementById('wiz').style.display='flex';
+}
+function closeWiz(){ document.getElementById('wiz').style.display='none'; WIZ.res=null; }
+function wRender(){
+  for(let i=1;i<=3;i++){
+    document.getElementById('wstep'+i).style.display = (WIZ.step===i)?'block':'none';
+    const si=document.getElementById('wstepi'+i); si.classList.toggle('active', WIZ.step===i); si.classList.toggle('done', WIZ.step>i);
+  }
+  document.getElementById('wBack').style.display = WIZ.step>1 ? 'inline-block':'none';
+  const nx=document.getElementById('wNext');
+  nx.textContent = WIZ.step<3 ? 'Toliau' : (WIZ.mode==='edit'?'Išsaugoti':'Sukurti');
+  if(WIZ.step===3) wSummary();
+}
+function wGo(dir){
+  document.getElementById('wErr').textContent='';
+  if(dir>0){
+    if(WIZ.step===1 && !WIZ.res){ document.getElementById('wErr').textContent='Pasirink šaltinį.'; return; }
+    if(WIZ.step===2){
+      const t=document.getElementById('wAud').value;
+      if((t==='groups'||t==='users') && !Array.from(document.getElementById('wSubjects').selectedOptions).length){ document.getElementById('wErr').textContent='Pasirink bent vieną.'; return; }
+    }
+    if(WIZ.step===3){ wsubmit(); return; }
+  }
+  WIZ.step=Math.min(3,Math.max(1,WIZ.step+dir)); wRender();
+}
+function wType(t){
+  WIZ.type=t; WIZ.res=null; document.getElementById('wPick').textContent='';
+  Array.from(document.querySelectorAll('#wTypes button')).forEach(b=>b.classList.toggle('on', b.dataset.t===t));
+  document.getElementById('wSpWrap').style.display='none';
+  document.getElementById('wq').value='';
+  wSearch();
+}
+async function wSearch(){
+  const t=WIZ.type, q=document.getElementById('wq').value.trim();
+  const msg=document.getElementById('wMsg'), box=document.getElementById('wResults');
+  let url, recent;
+  if(t==='confluence'){ url='/api/sources/confluence/spaces?q='; recent='/api/sources/confluence/spaces/recent'; }
+  else if(t==='jira'){ url='/api/sources/jira/projects?q='; recent='/api/sources/jira/projects/recent'; }
+  else { url='/api/sources/sharepoint/sites?q='; recent='/api/sources/sharepoint/sites/recent'; }
+  let list=[];
+  if(q.length<2){ try{ list=await (await api(recent)).json(); }catch(e){} msg.textContent=list.length?'Naujausi (ieškok daugiau viršuje)':'Nėra.'; }
+  else { msg.textContent='Ieškoma…'; const r=await api(url+encodeURIComponent(q)); if(r.status===422){ msg.textContent='Įvesk bent 2 simbolius.'; return; } list=await r.json(); msg.textContent=list.length?(list.length+' rasta'):'Nieko nerasta.'; }
+  WIZ.list=list;
+  box.innerHTML=list.map((x,i)=>{
+    const title=x.name||x.displayName, sub=(t==='sharepoint')?(x.webUrl||''):(x.key?('Key: '+x.key):'');
+    return '<div class="ri" id="ri'+i+'"><div style="flex:1"><div style="font-weight:500">'+esc(title)+'</div><div class="muted">'+esc(sub)+'</div></div>'+
+      '<button class="sm" onclick="wPickSrc('+i+')">Pasirinkti</button></div>';
+  }).join('');
+}
+async function wPickSrc(i){
+  const t=WIZ.type, x=WIZ.list[i];
+  Array.from(document.querySelectorAll('#wResults .ri')).forEach(e=>e.classList.remove('sel'));
+  const el=document.getElementById('ri'+i); if(el) el.classList.add('sel');
+  if(t==='sharepoint'){
+    WIZ.res={source_type:'sharepoint', site_id:String(x.id), source_title:x.name, folder:'', folder_id:''};
+    document.getElementById('wFolderSel').textContent='(visa biblioteka)';
+    document.getElementById('wName').value='SP: '+x.name;
+    document.getElementById('wPick').textContent='Pasirinkta: '+x.name+' — pasirink biblioteką/katalogą.';
+    try{
+      const libs=await (await api('/api/sources/sharepoint/sites/'+encodeURIComponent(x.id)+'/libraries')).json();
+      const sel=document.getElementById('wLib'); sel.innerHTML=libs.map(l=>'<option>'+esc(l.name)+'</option>').join('');
+      document.getElementById('wSpWrap').style.display='block'; spBrowse('');
+    }catch(e){}
+  } else {
+    WIZ.res={source_type:t, source_id:String(x.id), source_key:x.key, source_title:x.name};
+    document.getElementById('wName').value=SRC_SHORT[t]+': '+x.name;
+    document.getElementById('wSpWrap').style.display='none';
+    let extra='';
+    if(t==='confluence'){ try{ const p=await (await api('/api/sources/confluence/spaces/'+encodeURIComponent(x.id)+'/preview')).json(); extra=' · puslapių: '+p.count+(p.at_least?'+':'')+(p.large?' (didelė — pirmas sync ilgas)':''); }catch(e){} }
+    document.getElementById('wPick').textContent='Pasirinkta: '+x.name+extra;
+  }
+}
+/* SharePoint folder drill-down (wizard) */
+async function spBrowse(path){
+  if(!WIZ.res || WIZ.res.source_type!=='sharepoint') return;
+  const lib=document.getElementById('wLib').value;
+  const url='/api/sources/sharepoint/sites/'+encodeURIComponent(WIZ.res.site_id)+'/folders?library='+encodeURIComponent(lib)+'&path='+encodeURIComponent(path||'');
+  let folders=[]; try{ folders=await (await api(url)).json(); }catch(e){}
+  document.getElementById('wFolderWrap').style.display='block';
+  const segs=(path||'').split('/').filter(Boolean);
+  let crumb='<a href="#" onclick="spBrowse(\'\');return false">'+esc(lib)+'</a>'; let acc='';
+  segs.forEach(sg=>{ acc=acc?acc+'/'+sg:sg; crumb+=' / <a href="#" onclick="spBrowse(\''+esc(acc)+'\');return false">'+esc(sg)+'</a>'; });
+  document.getElementById('wCrumb').innerHTML=crumb;
+  const list=folders.map(f=>'<div style="padding:3px 0"><i class="ti"></i><a href="#" onclick="spBrowse(\''+esc(f.path)+'\');return false">'+esc(f.name)+'</a>'+(f.has_children?' ›':'')+
+    ' <button class="sm" onclick="spChoose(\''+esc(f.id)+'\',\''+esc(f.path)+'\')">pasirinkti</button></div>').join('')||'<span class="muted">(nėra pakatalogių)</span>';
+  document.getElementById('wFolderList').innerHTML='<div style="padding:3px 0"><button class="sm" onclick="spChoose(\'\',\'\')">✓ visa biblioteka</button></div>'+list;
+}
+function spChoose(folderId,path){
+  WIZ.res.folder_id=folderId||''; WIZ.res.folder=path||'';
+  document.getElementById('wFolderSel').textContent=WIZ.res.folder||'(visa biblioteka)';
+  if(WIZ.mode==='create'){ const leaf=(path||'').split('/').pop(); document.getElementById('wName').value='SP: '+WIZ.res.source_title+(leaf?' / '+leaf:''); }
+}
+function wAudChange(){
+  const t=document.getElementById('wAud').value, wrap=document.getElementById('wSubjWrap'), sel=document.getElementById('wSubjects');
+  if(t==='groups'||t==='users'){ wrap.style.display='block'; document.getElementById('wSubjLbl').textContent=t==='groups'?'Pasirink grupes':'Pasirink asmenis';
+    const arr=t==='groups'?GROUPS:USERS; sel.innerHTML=arr.map(x=>'<option value="'+x.id+'">'+esc(x.name||x.email)+'</option>').join(''); }
+  else wrap.style.display='none';
+}
+function wSummary(){
+  const t=document.getElementById('wAud').value;
+  const r=WIZ.res||{};
+  let src=SRC_LABEL[r.source_type]||r.source_type;
+  if(r.source_type==='sharepoint') src+=' · '+(r.folder||'visa biblioteka');
+  else src+=' · '+(r.source_title||'');
+  document.getElementById('wSummary').innerHTML='Šaltinis: <b>'+esc(src)+'</b><br>Kam matoma: <b>'+esc(AUD_LABEL[t])+'</b><br>Atsinaujina: <b>'+esc(INT_LABEL[document.getElementById('wInterval').value])+'</b>';
+}
+async function wsubmit(){
+  const nx=document.getElementById('wNext'); if(nx.disabled) return;
+  const t=document.getElementById('wAud').value;
+  let ids=[]; if(t==='groups'||t==='users') ids=Array.from(document.getElementById('wSubjects').selectedOptions).map(o=>o.value);
+  const name=document.getElementById('wName').value.trim(); const interval=document.getElementById('wInterval').value;
+  if(!name){ document.getElementById('wErr').textContent='Įvesk pavadinimą.'; return; }
+  const r=WIZ.res;
+  let source_id=r.source_id, source_key=r.source_key;
+  if(r.source_type==='sharepoint'){
+    const lib=document.getElementById('wLib').value; const fid=r.folder_id||'', fp=r.folder||'';
+    source_id=r.site_id+'/'+lib+(fid?'/'+fid:''); source_key=lib+(fp?'/'+fp:'');
+  }
+  nx.disabled=true; const old=nx.textContent; nx.textContent='…';
+  try{
+    let resp;
+    if(WIZ.mode==='edit'){
+      const body={kb_name:name, audience_type:t, audience_ids:ids, interval};
+      if(r.source_type==='sharepoint'){ body.source_id=source_id; body.source_key=source_key; }
+      resp=await api('/api/jobs/'+WIZ.editId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    } else {
+      resp=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        source_type:r.source_type, source_id:source_id, source_key:source_key, source_title:r.source_title,
+        kb_name:name, audience_type:t, audience_ids:ids, interval})});
+    }
+    if(!resp.ok){ document.getElementById('wErr').textContent=(await resp.json()).detail||'Klaida'; return; }
+    closeWiz(); loadJobs();
+  } finally { nx.disabled=false; nx.textContent=old; }
+}
+
+/* ---------- Alerts ---------- */
+const WARN_ACTIONS={ sync_error:'Sinchronizavimo klaida', sync_exception:'Klaida', stale_guard_pause:'Pristabdyta (apsauga)', audience_drift:'Pasikeitė prieigos nariai' };
+const ERROR_ACTIONS={ sync_error:1, sync_exception:1, stale_guard_pause:1 };
+function auditKb(r){ return r.kb_name || (r.details&&r.details.kb) || ''; }
+function renderAlerts(){
+  const box=document.getElementById('alerts'); const cutoff=Date.now()-24*3600*1000;
+  const rel=AUDIT.filter(r=>{
+    if(!WARN_ACTIONS[r.action]) return false;
+    const t=new Date(r.ts).getTime(); if(!isNaN(t)&&t<cutoff) return false;
+    const job=JOBS.find(j=>j.id===r.job_id); if(!job) return false;
+    const ls=job.last_sync_at?new Date(job.last_sync_at).getTime():0; if(!isNaN(t)&&ls&&ls>=t) return false;
+    const ack=job.alerts_ack_at?new Date(job.alerts_ack_at).getTime():0; if(!isNaN(t)&&ack&&ack>=t) return false;
+    return true;
+  });
+  const byJob={}; rel.forEach(r=>{ if(!byJob[r.job_id]||new Date(r.ts)>new Date(byJob[r.job_id].ts)) byJob[r.job_id]=r; });
+  const items=Object.values(byJob).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+  const rows=items.map(r=>{
+    const job=JOBS.find(j=>j.id===r.job_id)||{}; const isErr=ERROR_ACTIONS[r.action];
+    let det=r.details?JSON.stringify(r.details):''; if(det.length>70) det=det.slice(0,70)+'…';
+    const broken=(job.status==='error'||job.status==='paused');
+    let b=''; if(broken) b+='<button class="sm" onclick="jobSync(\''+r.job_id+'\')">Kartoti</button> ';
+    b+='<button class="sm" onclick="openEdit(\''+r.job_id+'\')">Keisti</button> ';
+    if(broken) b+='<button class="sm" onclick="jobDelete(\''+r.job_id+'\')">Trinti</button> ';
+    b+='<button class="sm" onclick="ackAlerts(\''+r.job_id+'\')">Atmesti</button>';
+    return '<div style="display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--border)">'+
+      '<div style="cursor:pointer" onclick="highlightJob(\''+r.job_id+'\')"><b>'+(isErr?'⛔ ':'ℹ️ ')+esc(WARN_ACTIONS[r.action])+'</b> · '+esc(auditKb(r))+' <span class="muted">'+fmtTime(r.ts)+'</span><br><span class="muted">'+esc(det)+'</span></div>'+
+      '<div style="white-space:nowrap">'+b+'</div></div>';
+  }).join('');
+  box.style.display='block';
+  box.innerHTML='<div class="card" style="border-color:var(--bad); background:var(--bad-bg)"><h2 style="color:var(--bad)">Įspėjimai</h2>'+rows+'</div>';
+}
+async function ackAlerts(id){ await api('/api/jobs/'+id+'/ack-alerts',{method:'POST'}); loadAudit(); }
+function highlightJob(id){ const row=document.getElementById('job-'+id); if(!row)return; row.scrollIntoView({behavior:'smooth',block:'center'}); row.style.background='var(--warn-bg)'; setTimeout(()=>row.style.background='',1800); }
+
+/* ---------- Audit ---------- */
+async function loadAudit(){
+  try{ AUDIT=await (await api('/api/audit')).json(); }catch(e){ return; }
+  const sel=document.getElementById('aAction'), cur=sel.value;
+  const acts=[...new Set(AUDIT.map(r=>r.action))].sort();
+  sel.innerHTML='<option value="">visi veiksmai</option>'+acts.map(a=>'<option>'+esc(a)+'</option>').join(''); sel.value=cur;
+  renderAudit(); renderAlerts();
+}
+function renderAudit(){
+  const fa=(document.getElementById('aActor').value||'').toLowerCase();
+  const fac=document.getElementById('aAction').value;
+  const fkb=(document.getElementById('aKb').value||'').toLowerCase();
+  const filtered=AUDIT.filter(r=> (!fa||(r.actor||'').toLowerCase().includes(fa)) && (!fac||r.action===fac) && (!fkb||auditKb(r).toLowerCase().includes(fkb)));
+  const rows=filtered.slice(0,10).map(r=>{ let det=r.details?JSON.stringify(r.details):''; if(det.length>60)det=det.slice(0,60)+'…';
+    return '<tr><td class="muted">'+fmtTime(r.ts)+'</td><td>'+esc(r.actor||'')+'</td><td>'+esc(r.action)+'</td><td>'+esc(auditKb(r))+'</td><td class="muted">'+esc(det)+'</td></tr>'; }).join('');
+  document.getElementById('audit').innerHTML=rows;
+  document.getElementById('auditMsg').textContent='Rodoma '+Math.min(10,filtered.length)+' iš '+filtered.length+' (filtruok jei reikia daugiau)';
+}
+
+// ---------------- Brand kit ----------------
+var BK={site_id:'',site_name:'',library:'Documents',folder:''};
+async function bkLoad(){
+  try{
+    const d=await (await api('/api/brandkit')).json();
+    document.getElementById('bkNoSp').style.display=d.configured?'none':'block';
+    const c=d.config||{};
+    BK={site_id:c.site_id||'',site_name:c.site_name||'',library:c.library||'Documents',folder:c.folder||''};
+    if(BK.site_id){
+      document.getElementById('bkChosen').style.display='block';
+      document.getElementById('bkSiteName').textContent=BK.site_name||BK.site_id;
+      document.getElementById('bkFolder').value=BK.folder;
+      await bkLibs(BK.site_id, BK.library);
+    }
+    bkRenderStatus(d.status||{});
+  }catch(e){}
+}
+function bkRenderStatus(s){
+  const el=document.getElementById('bkStatus'); const btn=document.getElementById('bkSyncBtn');
+  if(s.running){ el.innerHTML='<b>Sinchronizuojama…</b>'; btn.disabled=true; if(!window._bkt) window._bkt=setInterval(bkLoad,3000); }
+  else{ btn.disabled=false; if(window._bkt){ clearInterval(window._bkt); window._bkt=null; }
+    let h='Paskutinė sinchronizacija: <b>'+fmtTime(s.last_sync?s.last_sync*1000:null)+'</b><br>';
+    h+='Failų: <b>'+(s.files||0)+'</b> · nuotraukų: <b>'+(s.images||0)+'</b> · šablonų: <b>'+(s.templates||0)+'</b>';
+    if(s.error) h+='<br><span style="color:#c00">Klaida: '+esc(s.error)+'</span>';
+    el.innerHTML=h;
+  }
+}
+let _bkTmr;
+function bkSearch(){ clearTimeout(_bkTmr); _bkTmr=setTimeout(bkSearchGo,300); }
+async function bkSearchGo(){
+  const q=document.getElementById('bkQ').value;
+  const url=q?('/api/sources/sharepoint/sites?q='+encodeURIComponent(q)):'/api/sources/sharepoint/sites/recent';
+  let items=[]; try{ items=await (await api(url)).json(); }catch(e){ return; }
+  document.getElementById('bkSites').innerHTML=(items||[]).slice(0,10).map(x=>
+    '<div class="pick" style="padding:6px;cursor:pointer;border-bottom:1px solid #eee" onclick=\''+esc('bkPick('+JSON.stringify(String(x.id))+','+JSON.stringify(x.name||'')+')')+'\'>'+esc(x.name||'')+'<br><span class="muted" style="font-size:11px">'+esc(x.webUrl||'')+'</span></div>').join('')||'<p class="muted">Nieko nerasta</p>';
+}
+async function bkPick(id,name){
+  BK.site_id=id; BK.site_name=name;
+  document.getElementById('bkChosen').style.display='block';
+  document.getElementById('bkSiteName').textContent=name||id;
+  await bkLibs(id,'Documents');
+}
+async function bkLibs(site_id, sel){
+  let libs=[]; try{ libs=await (await api('/api/sources/sharepoint/sites/'+encodeURIComponent(site_id)+'/libraries')).json(); }catch(e){}
+  const s=document.getElementById('bkLib');
+  s.innerHTML=(libs||[]).map(l=>'<option'+(l.name===sel?' selected':'')+'>'+esc(l.name)+'</option>').join('')||'<option>Documents</option>';
+}
+async function bkSave(){
+  BK.library=document.getElementById('bkLib').value||'Documents';
+  BK.folder=document.getElementById('bkFolder').value.trim();
+  const r=await api('/api/brandkit/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(BK)});
+  if(r.ok){ document.getElementById('bkStatus').innerHTML='Išsaugota. Spausk „Sinchronizuoti dabar".'; }
+}
+async function bkSync(){
+  const r=await api('/api/brandkit/sync',{method:'POST'});
+  if(!r.ok){ const e=await r.json(); alert(e.detail||'Klaida'); return; }
+  document.getElementById('bkSyncBtn').disabled=true;
+  setTimeout(bkLoad,800);
+}
+
+/* ================= Grupinės KB (Path C) ================= */
+var KBGROUPS=[];
+var GB={mode:'create', id:null, kb_id:null, sources:[], site_id:'', site_name:''};
+
+async function loadGroups(){
+  try{ KBGROUPS=await (await api('/api/kbgroups')).json(); }catch(e){ return; }
+  renderGroups();
+  // Self-poll while a sync is running so the row (and the Stop button) stays live.
+  if(window._gt){ clearTimeout(window._gt); window._gt=null; }
+  const onView=document.getElementById('view-kbgroups').classList.contains('on');
+  if(onView && KBGROUPS.some(g=>g.status==='processing')) window._gt=setTimeout(loadGroups, 4000);
+}
+function renderGroups(){
+  const wrap=document.getElementById('gWrap');
+  if(!KBGROUPS.length){
+    wrap.innerHTML='<div class="empty"><p class="muted">Dar nėra grupinių žinių bazių. Sujunk kelis SharePoint aplankus į vieną — paieška bus tikslesnė.</p>'+
+      '<button class="primary" onclick="openGwiz()">+ Sukurti pirmą grupinę KB</button></div>';
+    return;
+  }
+  const rows=KBGROUPS.map(g=>{
+    const off=!g.enabled;
+    const stTxt= off?'išjungta':(ST_LABEL[g.status]||g.status);
+    const stCls= off?'off':(g.status==='active'?'ok':(g.status==='error'?'bad':'warn'));
+    const err=g.error_message?('<div class="muted" style="color:var(--bad)">'+esc(String(g.error_message).slice(0,120))+'</div>'):'';
+    const busy=g.status==='processing'; const d=(busy||off)?'disabled':'';
+    const srcs=(g.sources||[]).map(s=>esc(s.title||s.library)).join(', ')||'(nėra aplankų)';
+    return '<tr id="grp-'+g.id+'">'+
+      '<td><div style="font-weight:500">'+esc(g.kb_name)+'</div>'+
+        '<div class="muted">'+(g.source_count||0)+' aplank(ai) · '+(g.file_count||0)+' failų</div>'+
+        '<div class="muted" style="font-size:12px">'+srcs+'</div>'+err+'</td>'+
+      '<td>'+esc(AUD_LABEL[g.audience_type]||g.audience_type)+'</td>'+
+      '<td>'+esc(INT_LABEL[g.interval]||g.interval)+'</td>'+
+      '<td><span class="pill '+stCls+'">'+stTxt+'</span></td>'+
+      '<td class="muted">'+fmtTime(g.last_sync_at)+'</td>'+
+      '<td style="white-space:nowrap">'+
+        '<label class="switch" title="Įjungti/išjungti"><input type="checkbox" '+(g.enabled?'checked':'')+' onchange="groupToggle(\''+g.id+'\',this.checked)"><span></span></label> '+
+        (busy
+          ? '<button class="sm" onclick="groupCancel(\''+g.id+'\')" title="Sustabdyti sinchronizavimą">⏹ Stabdyti</button> '
+          : '<button class="sm" '+(off?'disabled':'')+' onclick="groupSync(\''+g.id+'\')" title="Atnaujinti dabar">Atnaujinti</button> ')+
+        '<button class="sm" onclick="openGwizEdit(\''+g.id+'\')">Keisti</button> '+
+        '<button class="sm" onclick="groupDelete(\''+g.id+'\')">Trinti</button>'+
+      '</td></tr>';
+  }).join('');
+  wrap.innerHTML='<table><thead><tr><th>Žinių bazė / aplankai</th><th>Kam matoma</th><th>Atsinaujina</th><th>Būsena</th><th>Paskutinis</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+async function groupToggle(id,val){ await api('/api/kbgroups/'+id+'/enabled',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:val})}); loadGroups(); }
+async function groupSync(id){ const g=KBGROUPS.find(x=>x.id===id); if(g)g.status='processing'; renderGroups(); await api('/api/kbgroups/'+id+'/sync',{method:'POST'}); loadGroups(); }
+async function groupDelete(id){ if(!confirm('Ištrinti šią grupinę žinių bazę? Visas turinys bus pašalintas iš OpenWebUI.'))return; await api('/api/kbgroups/'+id,{method:'DELETE'}); loadGroups(); }
+async function groupCancel(id){ await api('/api/kbgroups/'+id+'/cancel',{method:'POST'}); const g=KBGROUPS.find(x=>x.id===id); if(g)g.error_message='Stabdoma…'; renderGroups(); setTimeout(loadGroups,1500); }
+
+/* ---- modal (create + manage) ---- */
+function openGwiz(){
+  GB={mode:'create', id:null, kb_id:null, sources:[], site_id:'', site_name:''};
+  document.getElementById('gwizTitle').textContent='Nauja grupinė žinių bazė';
+  document.getElementById('gSaveBtn').textContent='Sukurti';
+  document.getElementById('gName').value='';
+  document.getElementById('gAud').value='private'; gAudChange();
+  document.getElementById('gInterval').value='24h';
+  document.getElementById('gSiteQ').value=''; document.getElementById('gSites').innerHTML='';
+  document.getElementById('gLibWrap').style.display='none';
+  document.getElementById('gErr').textContent='';
+  renderPicked();
+  document.getElementById('gwiz').style.display='flex';
+}
+function openGwizEdit(id){
+  const g=KBGROUPS.find(x=>x.id===id); if(!g) return;
+  GB={mode:'manage', id:id, kb_id:g.kb_id, sources:(g.sources||[]).map(s=>({
+    id:s.id, site_id:s.site_id, site_name:s.site_name, library:s.library,
+    folder_id:s.folder_id, folder_path:s.folder_path, title:s.title})),
+    site_id:'', site_name:''};
+  document.getElementById('gwizTitle').textContent='Keisti grupinę KB';
+  document.getElementById('gSaveBtn').textContent='Išsaugoti';
+  document.getElementById('gName').value=g.kb_name;
+  document.getElementById('gAud').value=g.audience_type; gAudChange();
+  const ids=g.audience_ids||[]; Array.from(document.getElementById('gSubjects').options).forEach(o=>o.selected=ids.includes(o.value));
+  document.getElementById('gInterval').value=g.interval;
+  document.getElementById('gSiteQ').value=''; document.getElementById('gSites').innerHTML='';
+  document.getElementById('gLibWrap').style.display='none';
+  document.getElementById('gErr').textContent='';
+  renderPicked();
+  document.getElementById('gwiz').style.display='flex';
+}
+function closeGwiz(){ document.getElementById('gwiz').style.display='none'; if(GB.mode==='manage') loadGroups(); }
+function gAudChange(){
+  const t=document.getElementById('gAud').value, wrap=document.getElementById('gSubjWrap'), sel=document.getElementById('gSubjects');
+  if(t==='groups'||t==='users'){ wrap.style.display='block'; document.getElementById('gSubjLbl').textContent=t==='groups'?'Pasirink grupes':'Pasirink asmenis';
+    const arr=t==='groups'?GROUPS:USERS; sel.innerHTML=arr.map(x=>'<option value="'+x.id+'">'+esc(x.name||x.email)+'</option>').join(''); }
+  else wrap.style.display='none';
+}
+function renderPicked(){
+  const box=document.getElementById('gPicked');
+  if(!GB.sources.length){ box.innerHTML='<span class="muted">Dar nepasirinkta aplankų.</span>'; return; }
+  box.innerHTML=GB.sources.map((s,i)=>'<div class="ri sel" style="margin-bottom:4px"><div style="flex:1">'+
+    '<div style="font-weight:500">'+esc(s.title||s.library)+'</div>'+
+    '<div class="muted">'+esc(s.site_name||'')+' · '+esc(s.library)+(s.folder_path?(' / '+esc(s.folder_path)):' (visa biblioteka)')+'</div></div>'+
+    '<button class="sm" onclick="gRemove('+i+')">Pašalinti</button></div>').join('');
+}
+async function gRemove(i){
+  const s=GB.sources[i]; if(!s) return;
+  if(GB.mode==='manage' && s.id){
+    if(!confirm('Pašalinti šį aplanką? Jo failai bus išimti iš žinių bazės (kiti aplankai nepaliesti).'))return;
+    await api('/api/kbgroups/'+GB.id+'/sources/'+s.id,{method:'DELETE'});
+  }
+  GB.sources.splice(i,1); renderPicked();
+}
+let _gTmr;
+function gSearchSites(){ clearTimeout(_gTmr); _gTmr=setTimeout(gSearchGo,300); }
+async function gSearchGo(){
+  const q=document.getElementById('gSiteQ').value.trim();
+  const url=q.length<2?'/api/sources/sharepoint/sites/recent':('/api/sources/sharepoint/sites?q='+encodeURIComponent(q));
+  let items=[]; try{ const r=await api(url); if(r.status===422){ document.getElementById('gSites').innerHTML='<span class="muted">Įvesk bent 2 simbolius.</span>'; return; } items=await r.json(); }catch(e){ return; }
+  document.getElementById('gSites').innerHTML=(items||[]).slice(0,10).map(x=>
+    '<div class="ri"><div style="flex:1"><div style="font-weight:500">'+esc(x.name||'')+'</div><div class="muted" style="font-size:11px">'+esc(x.webUrl||'')+'</div></div>'+
+    // SharePoint site id is a "host,guid,guid" triple (commas) → JSON.stringify wraps it
+    // in DOUBLE quotes, which would close a double-quoted onclick attribute early. Use a
+    // single-quoted attribute + esc() (same proven pattern as bkPick) so the id survives.
+    '<button class="sm" onclick=\''+esc('gPickSite('+JSON.stringify(String(x.id))+','+JSON.stringify(x.name||'')+')')+'\'>Pasirinkti</button></div>').join('')||'<span class="muted">Nieko nerasta.</span>';
+}
+async function gPickSite(id,name){
+  GB.site_id=id; GB.site_name=name;
+  if(GB.mode==='create' && !document.getElementById('gName').value.trim()) document.getElementById('gName').value='SP grupė: '+name;
+  let libs=[]; try{ libs=await (await api('/api/sources/sharepoint/sites/'+encodeURIComponent(id)+'/libraries')).json(); }catch(e){}
+  const sel=document.getElementById('gLib'); sel.innerHTML=(libs||[]).map(l=>'<option>'+esc(l.name)+'</option>').join('')||'<option>Documents</option>';
+  document.getElementById('gLibWrap').style.display='block';
+  gBrowse('');
+}
+async function gBrowse(path){
+  if(!GB.site_id) return;
+  const lib=document.getElementById('gLib').value;
+  const url='/api/sources/sharepoint/sites/'+encodeURIComponent(GB.site_id)+'/folders?library='+encodeURIComponent(lib)+'&path='+encodeURIComponent(path||'');
+  let folders=[]; try{ folders=await (await api(url)).json(); }catch(e){}
+  const segs=(path||'').split('/').filter(Boolean);
+  let crumb='<a href="#" onclick="gBrowse(\'\');return false">'+esc(lib)+'</a>'; let acc='';
+  segs.forEach(sg=>{ acc=acc?acc+'/'+sg:sg; crumb+=' / <a href="#" onclick="gBrowse(\''+esc(acc)+'\');return false">'+esc(sg)+'</a>'; });
+  document.getElementById('gCrumb').innerHTML=crumb;
+  const list=folders.map(f=>'<div style="padding:3px 0; display:flex; align-items:center; gap:8px">'+
+    '<a href="#" style="flex:1" onclick="gBrowse(\''+esc(f.path)+'\');return false">'+esc(f.name)+(f.has_children?' ›':'')+'</a>'+
+    '<button class="sm" onclick="gAddFolder(\''+esc(f.id)+'\',\''+esc(f.path)+'\',false)">+ pridėti</button></div>').join('')||'<span class="muted">(nėra pakatalogių)</span>';
+  document.getElementById('gFolderList').innerHTML=
+    '<div style="padding:3px 0"><button class="sm" onclick="gAddFolder(\'\',\''+esc(path||'')+'\',true)">+ pridėti visą '+(path?('katalogą „'+esc(segs[segs.length-1]||lib)+'"'):('biblioteką „'+esc(lib)+'"'))+'</button></div>'+list;
+}
+function gAddFolder(folderId, path, whole){
+  const lib=document.getElementById('gLib').value;
+  const fid = whole ? (path||'') : folderId;       // whole-library = '' ; whole-subfolder handled via path+id
+  const fpath = whole ? (path||'') : (path||'');
+  const leaf = (path||'').split('/').pop();
+  const title = whole ? (path? leaf : lib) : leaf;
+  // whole library => folder_id '' ; a specific folder (whole or drill target) => its stable id
+  const src={ site_id:GB.site_id, site_name:GB.site_name, library:lib,
+    folder_id: (whole && !path) ? '' : folderId, folder_path: fpath, title:title||lib };
+  const key=s=>s.site_id+'|'+s.library+'|'+(s.folder_id||'root');
+  if(GB.sources.some(s=>key(s)===key(src))){ document.getElementById('gErr').textContent='Šis aplankas jau pridėtas.'; return; }
+  document.getElementById('gErr').textContent='';
+  if(GB.mode==='manage'){
+    api('/api/kbgroups/'+GB.id+'/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(src)})
+      .then(r=>r.json()).then(row=>{ src.id=row.id; GB.sources.push(src); renderPicked(); });
+  } else { GB.sources.push(src); renderPicked(); }
+}
+async function gSubmit(){
+  const btn=document.getElementById('gSaveBtn'); if(btn.disabled) return;
+  const name=document.getElementById('gName').value.trim();
+  const t=document.getElementById('gAud').value;
+  const interval=document.getElementById('gInterval').value;
+  let ids=[]; if(t==='groups'||t==='users') ids=Array.from(document.getElementById('gSubjects').selectedOptions).map(o=>o.value);
+  const err=document.getElementById('gErr');
+  if(!name){ err.textContent='Įvesk pavadinimą.'; return; }
+  if((t==='groups'||t==='users') && !ids.length){ err.textContent='Pasirink bent vieną narį.'; return; }
+  if(GB.mode==='create' && !GB.sources.length){ err.textContent='Pridėk bent vieną aplanką.'; return; }
+  btn.disabled=true; const old=btn.textContent; btn.textContent='…';
+  try{
+    let resp;
+    if(GB.mode==='manage'){
+      resp=await api('/api/kbgroups/'+GB.id,{method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kb_name:name, audience_type:t, audience_ids:ids, interval})});
+    } else {
+      const sources=GB.sources.map(s=>({site_id:s.site_id, site_name:s.site_name, library:s.library,
+        folder_id:s.folder_id||null, folder_path:s.folder_path||null, title:s.title}));
+      // Preview: count files first so the admin can bail on a surprise-huge folder.
+      btn.textContent='Skaičiuoju…';
+      let pv; try{ pv=await (await api('/api/kbgroups/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sources})})).json(); }
+      catch(e){ err.textContent='Nepavyko suskaičiuoti failų. Bandyk dar kartą.'; return; }
+      const lines=(pv.per_source||[]).map(p=>'  • '+p.title+': '+(p.count==null?('klaida — '+(p.error||'')):(p.count+' failų'))).join('\n');
+      if(!confirm('Rasta '+pv.total+' failų (rekursyviai, su pakatalogiais):\n'+lines+'\n\nSukurti žinių bazę ir pradėti sinchronizavimą?')){ return; }
+      resp=await api('/api/kbgroups',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kb_name:name, audience_type:t, audience_ids:ids, interval, sources})});
+    }
+    if(!resp.ok){ err.textContent=(await resp.json()).detail||'Klaida'; return; }
+    document.getElementById('gwiz').style.display='none'; loadGroups();
+  } finally { btn.disabled=false; btn.textContent=old; }
+}
+
+init();
+</script>
+</body>
+</html>

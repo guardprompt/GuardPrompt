@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GuardPrompt Add-in — Word (and Excel/PowerPoint if you add their <Host>).
+     Classic task-pane manifest = widest reach, simplest to sideload.
+
+     BEFORE USE, replace:
+       * __ADDIN_GUID__  — a fresh GUID.  Generate: powershell -Command "[guid]::NewGuid()"
+       * __HOST__        — the OWUI/guardproxy host that serves /officeaddin/
+                           (e.g. chat.regitra.lt). MUST be HTTPS and same origin as OWUI
+                           so the session cookie is sent with /api calls. -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+           xsi:type="TaskPaneApp">
+  <Id>__ADDIN_GUID__</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>GuardPrompt</ProviderName>
+  <DefaultLocale>lt-LT</DefaultLocale>
+  <DisplayName DefaultValue="GuardPrompt AI" />
+  <Description DefaultValue="Anonimizuojantis AI asistentas dokumentams." />
+  <IconUrl DefaultValue="https://__HOST__/officeaddin/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://__HOST__/officeaddin/assets/icon-64.png" />
+  <SupportUrl DefaultValue="https://__HOST__/" />
+  <AppDomains>
+    <AppDomain>https://__HOST__</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://__HOST__/officeaddin/taskpane.html" />
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <FunctionFile resid="Commands.Url" />
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="Gp.Group">
+                <Label resid="Gp.Group.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16" />
+                  <bt:Image size="32" resid="Icon.32" />
+                  <bt:Image size="80" resid="Icon.80" />
+                </Icon>
+                <Control xsi:type="Button" id="Gp.Taskpane.Button">
+                  <Label resid="Gp.Taskpane.Label" />
+                  <Supertip>
+                    <Title resid="Gp.Taskpane.Label" />
+                    <Description resid="Gp.Taskpane.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>GpTaskpane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://__HOST__/officeaddin/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://__HOST__/officeaddin/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://__HOST__/officeaddin/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Commands.Url" DefaultValue="https://__HOST__/officeaddin/commands.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://__HOST__/officeaddin/taskpane.html" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://__HOST__/" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="GuardPrompt AI" />
+        <bt:String id="Gp.Group.Label" DefaultValue="GuardPrompt" />
+        <bt:String id="Gp.Taskpane.Label" DefaultValue="GuardPrompt AI" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Anonimizuojantis AI asistentas — pažymėk tekstą ir spausk mygtuką." />
+        <bt:String id="Gp.Taskpane.Tooltip" DefaultValue="Atverti GuardPrompt AI panelę" />
+      </bt:LongStrings>
+    </Resources>
+    <!-- SSO: lets the pane call OfficeRuntime.auth.getAccessToken() and reuse the user's
+         existing M365 sign-in (no second login). Replace __ENTRA_CLIENT_ID__ with the
+         registered delegated app's Application (client) ID; the Resource URI must match the
+         app's "Expose an API" Application ID URI (api://__HOST__/__ENTRA_CLIENT_ID__). -->
+    <WebApplicationInfo>
+      <Id>__ENTRA_CLIENT_ID__</Id>
+      <Resource>api://__HOST__/__ENTRA_CLIENT_ID__</Resource>
+      <Scopes>
+        <Scope>access_as_user</Scope>
+      </Scopes>
+    </WebApplicationInfo>
+  </VersionOverrides>
+</OfficeApp>

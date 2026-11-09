@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8" />
+  <title>GuardPrompt M365 auth</title>
+  <!-- MSAL from Microsoft's own CDN. Served from the OWUI/guardproxy origin, framed by the
+       extension side panel; acquires a DELEGATED Graph token via the user's EXISTING M365
+       sign-in (no hardcoded user — ssoSilent uses whoever is signed in) and posts it back
+       via postMessage. Public client + PKCE, no secret. SPA redirect in Entra must be this
+       exact URL: https://<host>/_gp/msauth.html -->
+  <!-- MSAL served LOCALLY from guardproxy (no external CDN — the CDN was blocked by the
+       network/CSP, and local hosting fits the on-prem model). -->
+  <script src="/_gp/msal-browser.min.js"></script>
+  <style>
+    body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:16px;color:#1f2328}
+    #s{white-space:pre-wrap;word-break:break-word}
+    .err{color:#b91c1c}
+  </style>
+</head>
+<body>
+<div id="s">Jungiamasi prie Microsoft…</div>
+<script>
+(async () => {
+  const interactive = new URLSearchParams(location.search).get("interactive") === "1";
+  const S = document.getElementById("s");
+  const show = (t, err) => { S.textContent = t; S.className = err ? "err" : ""; };
+  const post = (m) => { try { (window.opener || window.parent).postMessage(m, "*"); } catch (e) {} };
+  // Report a failure BOTH ways: visible on the page (popup) AND to the extension, with the
+  // REAL error text (AADSTS…) so the exact cause is obvious (redirect mismatch, consent, …).
+  const fail = (reason, detail) => { show((detail || reason), true); post({ gpError: reason, gpDetail: String(detail || "") }); };
+
+  let cfg;
+  try { cfg = await fetch("/_gp/msauth.config.json", { cache: "no-store" }).then(r => r.json()); }
+  catch (e) { return fail("config", "Nepavyko gauti msauth.config.json: " + e); }
+  if (!cfg.clientId || !cfg.tenantId || /REPLACE/.test(cfg.clientId + cfg.tenantId))
+    return fail("not_configured", "clientId/tenantId nenustatyti (msauth.config.json)");
+
+  const scopes = (cfg.scopes || "User.Read Mail.Read Files.Read.All Sites.Read.All").split(/\s+/).filter(Boolean);
+  const redirectUri = location.href.split("#")[0].split("?")[0];   // == the registered SPA redirect
+  let app;
+  try {
+    app = new msal.PublicClientApplication({
+      auth: { clientId: cfg.clientId, authority: `https://login.microsoftonline.com/${cfg.tenantId}`, redirectUri },
+      cache: { cacheLocation: "sessionStorage" },
+    });
+    await app.initialize();
+  } catch (e) { return fail("msal_init", "MSAL init: " + e); }
+
+  // Post the token, then (if opened as a popup) close so the flash is brief.
+  const succeed = (t) => { show("Prisijungta ✅"); post({ gpToken: t }); if (window.opener) setTimeout(() => { try { window.close(); } catch (e) {} }, 300); };
+
+  // Returning from an interactive redirect? Capture the token.
+  try {
+    const resp = await app.handleRedirectPromise();
+    if (resp && resp.accessToken) return succeed(resp.accessToken);
+  } catch (e) { if (interactive) return fail("redirect_err", "" + (e && e.errorMessage || e)); }
+
+  // Silent — uses the EXISTING signed-in user (no login_hint = whoever is in this browser).
+  try {
+    const account = app.getAllAccounts()[0];
+    const result = account
+      ? await app.acquireTokenSilent({ scopes, account })
+      : await app.ssoSilent({ scopes });
+    return succeed(result.accessToken);
+  } catch (e) {
+    const msg = (e && (e.errorMessage || e.message)) || String(e);
+    if (interactive) {
+      // Visible popup → do the real interactive sign-in. Shows the user any consent/login.
+      show("Reikia prisijungti…");
+      try { await app.loginRedirect({ scopes }); }
+      catch (e2) { fail("login_err", "" + (e2 && e2.errorMessage || e2)); }
+    } else {
+      // Hidden iframe couldn't do it silently → tell the extension to reopen as a popup,
+      // and include the REAL reason so it's visible even before the popup.
+      post({ gpError: "interaction_required", gpDetail: msg });
+    }
+  }
+})();
+</script>
+</body>
+</html>

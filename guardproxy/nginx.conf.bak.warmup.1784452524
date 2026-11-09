@@ -1,0 +1,94 @@
+events {}
+
+http {
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    server_tokens off;
+
+    keepalive_timeout 65;
+    proxy_read_timeout 600s;
+    proxy_connect_timeout 10;
+    proxy_send_timeout 600s;
+
+    log_format iptest '$remote_addr | $host | $http_x_forwarded_for | $http_x_real_ip | $request';
+    access_log /dev/stdout iptest;
+    error_log /dev/stderr warn;
+
+    # Docker's embedded DNS. Required because the proxy_pass below goes through a
+    # variable: that is what makes nginx re-resolve open-webui-dk per request
+    # instead of once at startup.
+    #
+    # With a literal "proxy_pass http://open-webui-dk:8080;" nginx resolves the
+    # name when the config loads and caches the IP forever. Restarting
+    # open-webui-dk (watchtower auto-update, docker compose up -d, a manual
+    # restart) gives it a new container IP, and this proxy then serves
+    # "connect() failed (113: No route to host)" to every visitor until someone
+    # notices and restarts it. That outage happened on 2026-07-16.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    server {
+        listen 80;
+
+        client_max_body_size 10M;
+
+        # Įgaliname priėjimą prie naujo JS failo
+        location = /_gp/custom-inject.js {
+            root /usr/share/nginx/html;
+            expires 30d;
+            add_header Cache-Control "public";
+            default_type application/javascript;
+        }
+
+        location = /_gp/GuardPrompt.png {
+            root /usr/share/nginx/html;
+            expires 30d;
+            add_header Cache-Control "public";
+        }
+
+        # location = /_gp/logo.png {
+        #     root /usr/share/nginx/html;
+        #     expires 30d;
+        #     add_header Cache-Control "public";
+        # }
+
+        # Per-deployment branding (customer logo + name). Files are provided
+        # locally, not from the repo — see brand.default.json.
+        location = /_gp/client-logo.svg {
+            root /usr/share/nginx/html;
+            expires 30d;
+            add_header Cache-Control "public";
+        }
+
+        location = /_gp/brand.json {
+            root /usr/share/nginx/html;
+            default_type application/json;
+            add_header Cache-Control "no-store";
+        }
+
+        location / {
+            # Variable + $request_uri on purpose: a variable proxy_pass makes
+            # nginx re-resolve the name (see resolver above), but it also stops
+            # nginx passing the request URI automatically, so it is appended
+            # explicitly. $request_uri keeps the original path AND query string.
+            set $gp_upstream "http://open-webui-dk:8080";
+            proxy_pass $gp_upstream$request_uri;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            # sub_filter veikia tik jei compression išjungta
+            proxy_set_header Accept-Encoding "";
+
+            sub_filter_once off;
+            sub_filter_types text/css text/plain application/javascript;
+
+            # IDEALUS SPRENDIMAS: Įterpiame tik vieną saugią eilutę, kuri paleidžia JS failą
+            sub_filter "kit.start(app, element);" "kit.start(app, element); const script = document.createElement('script'); script.src = '/_gp/custom-inject.js'; document.head.appendChild(script);";
+        }
+    }
+}

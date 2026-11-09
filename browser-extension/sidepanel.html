@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="sidepanel.css" />
+  <title>GuardPrompt AI</title>
+</head>
+<body>
+  <header>
+    <div class="brandrow">
+      <img id="brandLogo" class="brandlogo" alt="" />
+      <span class="brand" id="brandName">GuardPrompt AI</span>
+    </div>
+    <div class="modelrow">
+      <select id="model" title="Modelis"></select>
+      <button id="test" title="Testas: ar anonimizacija veikia" class="icon">🧪</button>
+    </div>
+  </header>
+
+  <main id="log" aria-live="polite"></main>
+
+  <footer>
+    <textarea id="q" rows="3" placeholder="Pažymėk tekstą lauke ir parašyk ką daryti: „pakeisk į…“, „ištaisyk gramatiką“, „išversk“, „ištrink“ — arba tiesiog klausk apie puslapį…"></textarea>
+    <button id="send">Siųsti</button>
+    <button id="stop" class="hidden stopbtn">⏹ Stabdyti</button>
+    <p class="muted" id="note">Turinys anonimizuojamas prieš išorinį LLM.</p>
+  </footer>
+
+  <script src="env-config.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

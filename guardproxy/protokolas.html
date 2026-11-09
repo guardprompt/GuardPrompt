@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Susitikimų protokolas</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f6f7f9; --fg:#1f2933; --muted:#6b7480;
+    --card:#ffffff; --border:#e2e6eb; --accent:#2563eb; --accent-fg:#fff;
+    --danger:#dc2626; --ok:#16a34a; --field:#fff; --track:#e2e6eb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1419; --fg:#e4e7eb; --muted:#9aa5b1;
+      --card:#1a2029; --border:#2a323d; --accent:#3b82f6;
+      --danger:#f87171; --ok:#4ade80; --field:#0f1419; --track:#2a323d;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; min-height:100vh; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--fg); line-height:1.5;}
+  .wrap{max-width:860px; margin:0 auto; padding:24px 16px 64px}
+  .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:12px}
+  h1{font-size:20px; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 20px}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px}
+  label{display:block; font-size:13px; font-weight:600; margin:0 0 6px}
+  input[type=text], textarea, select{width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:8px;
+    background:var(--field); color:var(--fg); font-size:14px; font-family:inherit;}
+  textarea{min-height:240px; resize:vertical; line-height:1.55}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  button{padding:10px 18px; border:0; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;
+    background:var(--accent); color:var(--accent-fg);}
+  button.secondary{background:transparent; color:var(--fg); border:1px solid var(--border)}
+  button.danger{background:var(--danger); color:#fff}
+  button:disabled{opacity:.45; cursor:not-allowed}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--muted); margin-right:7px; vertical-align:middle}
+  .dot.rec{background:var(--danger); animation:pulse 1.2s infinite}
+  .dot.ok{background:var(--ok)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .status{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px}
+  .status.err{color:var(--danger)} .status.good{color:var(--ok)}
+  .hint{font-size:12.5px; color:var(--muted); margin-top:8px}
+  .hint b{color:var(--fg)}
+  details{margin-top:10px} summary{cursor:pointer; font-size:13px; color:var(--muted)}
+  .grid2{display:grid; grid-template-columns:1fr 180px; gap:12px}
+  @media (max-width:560px){.grid2{grid-template-columns:1fr}}
+  a{color:var(--accent)}
+  .timer{font-variant-numeric:tabular-nums; font-weight:600; margin-left:6px}
+  .meter{height:12px; border-radius:6px; background:var(--track); overflow:hidden; margin-top:14px}
+  .meter>span{display:block; height:100%; width:0%; background:var(--ok); transition:width .06s linear}
+  .spin{display:inline-block; width:13px; height:13px; border:2px solid var(--muted); border-top-color:var(--accent);
+    border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* Native file input restyled to match the button set. */
+  input[type=file]{padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--field);
+    color:var(--muted); font-size:13px; font-family:inherit}
+  input[type=file]::file-selector-button{padding:8px 15px; margin-right:12px; border:1px solid var(--border);
+    border-radius:7px; background:transparent; color:var(--fg); font-weight:600; font-size:13px; font-family:inherit; cursor:pointer}
+  input[type=file]::file-selector-button:hover{background:var(--track)}
+  input[type=file]:disabled{opacity:.45; cursor:not-allowed}
+  /* Reuse the level-meter bar as an indeterminate progress bar while a process runs. */
+  .meter.busy>span{width:38%; background:var(--accent); transition:none; animation:slide 1.1s ease-in-out infinite}
+  @keyframes slide{0%{margin-left:-38%}100%{margin-left:100%}}
+  .uilang{display:flex; gap:4px; flex:0 0 auto}
+  .uilang button{padding:4px 9px; font-size:12px; font-weight:700; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:6px}
+  .uilang button.active{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1 id="i-appTitle">🛡️ Susitikimų protokolas</h1>
+      <p class="sub" id="i-appSub"></p>
+    </div>
+    <div class="uilang">
+      <button id="ui-lt" type="button">LT</button>
+      <button id="ui-en" type="button">EN</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <label for="title" id="i-lblTitle">Protokolo pavadinimas</label>
+        <input type="text" id="title">
+      </div>
+      <div>
+        <label for="lang" id="i-lblLang">Kalba</label>
+        <select id="lang">
+          <option value="">Auto</option>
+          <option value="lt" selected>Lietuvių</option>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="pl">Polski</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="lv">Latviešu</option>
+          <option value="et">Eesti</option>
+          <option value="uk">Українська</option>
+        </select>
+      </div>
+    </div>
+    <label for="names" id="i-lblNames" style="margin-top:12px">Dalyvių vardai / terminai</label>
+    <input type="text" id="names" placeholder="Rokas Petkevičius, Taurimas Valys, GuardPrompt…">
+    <div class="hint" id="i-namesHint"></div>
+
+    <div class="hint" id="i-hintShare" style="margin-top:10px"></div>
+
+    <div class="row" style="margin-top:10px">
+      <label for="micSel" id="i-lblMic" style="min-width:96px;align-self:center;opacity:.85"></label>
+      <select id="micSel" style="flex:1"><option value="">—</option></select>
+    </div>
+    <div class="hint" id="i-micHint"></div>
+
+    <div class="meter"><span id="meterFill"></span></div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="startBtn">● Pradėti</button>
+      <button id="pauseBtn" class="secondary" disabled>⏸ Pauzė</button>
+      <button id="stopBtn" class="danger" disabled>■ Baigti</button>
+      <span style="margin-left:auto"><span class="dot" id="dot"></span><span id="state">Paruošta</span><span class="timer" id="timer">00:00</span></span>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <label id="i-lblSource">Arba transkribuok esamą failą</label>
+    <div class="row" style="margin-top:6px">
+      <input type="file" id="fileInput" accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.mp4,.webm,.mov" style="flex:1;min-width:200px">
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="srcUrl" placeholder="https://… (SharePoint ar bet koks URL)" style="flex:1;min-width:200px">
+      <button id="urlBtn" class="secondary">Transkribuoti iš nuorodos</button>
+    </div>
+    <div class="hint" id="i-sourceHint"></div>
+  </div>
+
+  <div class="card">
+    <label for="transcript" id="i-lblTranscript">Transkriptas</label>
+    <textarea id="transcript"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="saveBtn" disabled>💾 Išsaugoti į OpenWebUI</button>
+      <button id="dlBtn" class="secondary" disabled>⬇ Atsisiųsti įrašą</button>
+      <button id="retryBtn" class="secondary" disabled>↻ Transkribuoti iš naujo</button>
+      <span class="status" id="saveStatus" style="margin-top:0"></span>
+    </div>
+  </div>
+
+  <details>
+    <summary id="i-advanced">Papildomi nustatymai</summary>
+    <div class="card" style="margin-top:10px">
+      <label for="model" id="i-lblModel">Protokolo modelis</label>
+      <select id="model"><option value="">…</option></select>
+      <div class="hint" id="i-modelHint"></div>
+      <label for="prompt" id="i-lblPrompt" style="margin-top:14px">Nurodymas modeliui</label>
+      <textarea id="prompt" style="min-height:100px"></textarea>
+      <div class="hint" id="i-promptHint"></div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const startBtn=$("startBtn"), stopBtn=$("stopBtn"), pauseBtn=$("pauseBtn"), saveBtn=$("saveBtn"), dlBtn=$("dlBtn"), retryBtn=$("retryBtn"), micSel=$("micSel");
+  const statusEl=$("status"), saveStatus=$("saveStatus"), stateEl=$("state"), dot=$("dot");
+  const ta=$("transcript"), timerEl=$("timer"), meterFill=$("meterFill");
+  const MIME = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+
+  let sysStream=null, micStream=null, audioCtx=null, mixedDest=null, analyser=null, rafId=null;
+  let recorder=null, parts=[], recording=false, paused=false, micWarn="", baseMs=0, segStart=0, timerInt=null;
+  let fullBlob=null;
+
+  // Central busy state: while any process (transcribe / correct / save) runs, the
+  // trigger controls are disabled and an indeterminate progress bar animates; on
+  // release, save/retry re-enable per current state. Recording is managed apart.
+  function setBusy(on){
+    // Reuse the level-meter bar (above the record buttons) as the moving progress
+    // indicator. Not during recording — there it shows the live audio level.
+    const meter=document.querySelector(".meter");
+    if(on && !recording){ $("meterFill").style.width=""; meter.classList.add("busy"); }
+    else { meter.classList.remove("busy"); if(!recording) $("meterFill").style.width="0%"; }
+    startBtn.disabled = on || recording;
+    $("fileInput").disabled = !!on;
+    $("urlBtn").disabled = !!on;
+    retryBtn.disabled = on || !fullBlob;
+    saveBtn.disabled = on || !ta.value.trim();
+  }
+  const LSK_MODEL="gp_pk_model", LSK_PROMPT="gp_pk_prompt", LSK_UI="gp_pk_uilang", LSK_Q="gp_pk_quality";
+
+  // ---------- i18n ----------
+  const I18N = {
+    lt:{
+      appTitle:"🛡️ Susitikimų protokolas",
+      appSub:"Įrašo abi puses — tavo mikrofoną + kitų dalyvių garsą. Baigus, visas įrašas transkribuojamas lokaliai ir protokolas išsaugomas OpenWebUI pastabose.",
+      lblTitle:"Protokolo pavadinimas", lblLang:"Kalba", optAuto:"Automatiškai",
+      lblNames:"Dalyvių vardai / terminai",
+      namesHint:"Neprivaloma, bet padeda: įrašyk dalyvių vardus ir specifinius terminus (kableliais) — transkripcija teisingiau atpažins vardus.",
+      hintShare:"Paspaudus Pradėti, pasirink Visas ekranas ir pažymėk 'Bendrinti sistemos garsą' (arba Chrome skirtukas + 'skirtuko garsą'). Tada leisk mikrofoną (neprivaloma). Chrome / Edge.",
+      btnStart:"● Pradėti", btnStop:"■ Baigti", btnPause:"⏸ Pauzė", btnResume:"▶ Tęsti", stPaused:"Pauzė",
+      lblTranscript:"Transkriptas", transcriptNote:"(redaguojamas prieš išsaugant)",
+      lblSource:"Arba transkribuok esamą failą", btnUrl:"Transkribuoti iš nuorodos",
+      urlPh:"https://… (SharePoint ar bet koks URL)",
+      sourceHint:"Įkelk garso/vaizdo failą iš kompo, arba įklijuok nuorodą (SharePoint bendrinimo nuoroda ar tiesioginis failo URL).",
+      taPlaceholder:"Baigus įrašymą, čia atsiras transkriptas…",
+      btnSave:"💾 Išsaugoti į OpenWebUI", btnDownload:"⬇ Atsisiųsti įrašą", btnRetry:"↻ Transkribuoti iš naujo",
+      advanced:"Papildomi nustatymai", lblQuality:"Garso kokybė",
+      lblModel:"Protokolo modelis", modelNote:"(transkriptas pervaromas per jį)",
+      lblPrompt:"Nurodymas modeliui",
+      modelHint:"Numatytą modelį parenka administratorius. Čia gali pasikoreguoti sau — pasirinkimas įsimenamas šioje naršyklėje.",
+      lblApikey:"OpenWebUI API raktas", apikeyNote:"(neprivaloma — palik tuščią, autentifikuoja seansas)",
+      modelNone:"— be modelio (žalias transkriptas) —",
+      stReady:"Paruošta", stRec:"Įrašoma…", stTranscribing:"Transkribuojama…", stDone:"Baigta",
+      defTitle:"Susitikimas",
+      recording:"Įrašoma. Ekrane rodomas tik garso lygis — tekstas atsiras baigus.",
+      recordingNoMic:w=>"⚠ Įrašomas TIK dalyvių garsas ("+w+") — tavo balso nebus.",
+      micNotFound:"mikrofonas nerastas", micNotAllowed:"mikrofono leidimas atmestas", micBusy:"mikrofonas užimtas", micErr:n=>"mikrofono klaida ("+n+")",
+      micDefault:"— numatytas mikrofonas —",
+      lblMic:"Mikrofonas",
+      micHint:"Salės susitikimui pasirink salės įrenginį (pvz. „Poly Studio“ — lubinių mikrofonų mišinį), ne kompiuterio vidinį. Ekrano bendrinimą dialoge gali atšaukti — įrašys tik iš mikrofono.",
+      noSource:"Nėra garso šaltinio — leisk mikrofoną arba bendrink sistemos garsą.",
+      noAudio:"Nepasirinkai garso. Bendrinant pažymėk 'Bendrinti sistemos garsą' (ar 'skirtuko garsą').",
+      shareCancelled:"Ekrano bendrinimas atšauktas arba neleistas.",
+      recErr:"MediaRecorder klaida.",
+      uploading:"Siunčiamas įrašas transkripcijai…",
+      transcribingWait:s=>"Transkribuojama visą įrašą… ("+s+" s)",
+      transcribeErr:e=>"Transkripcijos klaida: "+e,
+      emptyRec:"Įrašas tuščias — nieko negauta.",
+      finishedReview:"Transkripcija baigta. Peržiūrėk tekstą ir spausk 'Išsaugoti'.",
+      finishedReviewRaw:"Transkripcija baigta (lokaliai). Gali redaguoti, spausti 'Ištaisyti (LLM)' arba iškart 'Išsaugoti'.",
+      btnCorrect:"✨ Ištaisyti (LLM)",
+      correcting:"Tvarkomas tekstas modeliu…",
+      recovered:"⚠ Rastas neužbaigtas įrašas (po nutrūkimo). Spausk 'Transkribuoti iš naujo' arba 'Atsisiųsti įrašą'.",
+      correctionPrompt:"Šis tekstas yra automatinės kalbos transkripcijos rezultatas su klaidomis: neteisingai atpažinti žodžiai, pasikartojimai, spontaniškos kalbos trukdžiai (pvz. „mm“, „nu“, „ee“, „ir ir“). Ištaisyk klaidas pagal kontekstą ir lietuvių (ar atitinkamos) kalbos taisykles, pašalink pasikartojimus ir kalbos trukdžius, sutvarkyk skyrybą. IŠLAIKYK visą prasmę, turinį ir kalbą — nieko nepraleisk ir nepridėk. Grąžink TIK sutvarkytą tekstą, be komentarų.",
+      authFail:"Autentifikacija nepavyko — prisijunk prie OpenWebUI.",
+      nothingSave:"Nėra ką saugoti.", buildingProto:"Rengiamas protokolas su modeliu…", attachingRec:"Įkeliamas įrašas prie pastabos…",
+      modelEmpty:"Modelis grąžino tuščią — saugau žalią transkriptą.", modelErr:c=>"Modelio klaida HTTP "+c+" — saugau žalią transkriptą.",
+      modelNet:"Tinklo klaida su modeliu — saugau žalią transkriptą.",
+      saveErr:c=>"Klaida saugant: HTTP "+c, saveNet:"Tinklo klaida saugant.",
+      savedProto:"✅ Išsaugota (protokolas + transkriptas). ", savedRaw:"✅ Išsaugota (žalias transkriptas). ",
+      openNote:"Atidaryti pastabą", findNote:"Rask ją OpenWebUI → Notes.",
+      browserBad:"Ši naršyklė nepalaiko ekrano garso įrašymo. Naudok Chrome arba Edge.",
+      modelsUnavail:c=>"(modelių sąrašas neprieinamas — HTTP "+c+")", modelsErr:"(modelių sąrašo klaida)",
+      prompt:"You are a meeting-minutes writer. From the transcript below, produce a clear, structured protocol. IMPORTANT: write it IN THE SAME LANGUAGE as the transcript (e.g. Lithuanian, English or Russian). Use sections: Participants (if identifiable), Topics discussed, Decisions, Action items (with owners and deadlines if mentioned). Be factual. Do not invent information that is not in the transcript. If the transcript is incomplete, note that.",
+      promptPh:"Palik tuščią — bus naudojamas pasirinkto modelio system promptas.",
+      promptHint:"Pagal numatymą protokolą kuria pasirinkto modelio savas system promptas. Įrašyk čia tik jei nori jį pakeisti savo instrukcija.",
+      fullTranscriptHdr:"Pilnas transkriptas"
+    },
+    en:{
+      appTitle:"🛡️ Meeting protocol",
+      appSub:"Records both sides — your microphone + the other participants' audio. When you stop, the whole recording is transcribed locally and the protocol is saved to OpenWebUI notes.",
+      lblTitle:"Protocol title", lblLang:"Language", optAuto:"Auto-detect",
+      lblNames:"Participant names / terms",
+      namesHint:"Optional but helpful: list participant names and specific terms (comma-separated) — the transcription will spell names more accurately.",
+      hintShare:"After clicking Start, choose Entire Screen and tick 'Share system audio' (or Chrome Tab + 'Share tab audio'). Then allow the microphone (optional). Chrome / Edge.",
+      btnStart:"● Start", btnStop:"■ Stop", btnPause:"⏸ Pause", btnResume:"▶ Resume", stPaused:"Paused",
+      lblTranscript:"Transcript", transcriptNote:"(editable before saving)",
+      lblSource:"Or transcribe an existing file", btnUrl:"Transcribe from link",
+      urlPh:"https://… (SharePoint or any URL)",
+      sourceHint:"Upload an audio/video file from your computer, or paste a link (a SharePoint sharing link or a direct file URL).",
+      taPlaceholder:"After recording, the transcript appears here…",
+      btnSave:"💾 Save to OpenWebUI", btnDownload:"⬇ Download recording", btnRetry:"↻ Transcribe again",
+      advanced:"Advanced settings", lblQuality:"Audio quality",
+      lblModel:"Protocol model", modelNote:"(the transcript is run through it)",
+      lblPrompt:"Model instruction",
+      modelHint:"The default model is set by the administrator. You can adjust it for yourself here — the choice is remembered in this browser.",
+      lblApikey:"OpenWebUI API key", apikeyNote:"(optional — leave empty, the session authenticates)",
+      modelNone:"— no model (raw transcript) —",
+      stReady:"Ready", stRec:"Recording…", stTranscribing:"Transcribing…", stDone:"Done",
+      defTitle:"Meeting",
+      recording:"Recording. Only the audio level is shown — text appears when you stop.",
+      recordingNoMic:w=>"⚠ Recording participants' audio only ("+w+") — your voice will not be captured.",
+      micNotFound:"microphone not found", micNotAllowed:"microphone permission denied", micBusy:"microphone in use", micErr:n=>"microphone error ("+n+")",
+      micDefault:"— default microphone —",
+      lblMic:"Microphone",
+      micHint:"For a room meeting pick the room device (e.g. 'Poly Studio' — the ceiling-mic mix), not the computer's built-in mic. You may cancel the screen-share dialog — it will record from the microphone only.",
+      noSource:"No audio source — allow the microphone or share system audio.",
+      noAudio:"You did not share audio. When sharing, tick 'Share system audio' (or 'Share tab audio').",
+      shareCancelled:"Screen sharing was cancelled or denied.",
+      recErr:"MediaRecorder error.",
+      uploading:"Uploading the recording for transcription…",
+      transcribingWait:s=>"Transcribing the whole recording… ("+s+" s)",
+      transcribeErr:e=>"Transcription error: "+e,
+      emptyRec:"The recording is empty — nothing captured.",
+      finishedReview:"Transcription finished. Review the text and click 'Save'.",
+      finishedReviewRaw:"Transcription finished (locally). You can edit, click 'Correct (LLM)', or Save directly.",
+      btnCorrect:"✨ Correct (LLM)",
+      correcting:"Cleaning up the text with the model…",
+      recovered:"⚠ Found an unfinished recording (after an interruption). Click 'Transcribe again' or 'Download recording'.",
+      correctionPrompt:"The following text is an automatic speech-transcription result with errors: misrecognised words, repetitions, and spontaneous-speech disfluencies (e.g. 'um', 'uh', 'and and'). Fix the errors using context and the language's grammar, remove the repetitions and disfluencies, and fix punctuation. KEEP all meaning, content and the language — omit nothing and add nothing. Return ONLY the cleaned-up text, no comments.",
+      authFail:"Authentication failed — sign in to OpenWebUI.",
+      nothingSave:"Nothing to save.", buildingProto:"Building the protocol with the model…", attachingRec:"Attaching the recording to the note…",
+      modelEmpty:"Model returned empty — saving the raw transcript.", modelErr:c=>"Model error HTTP "+c+" — saving the raw transcript.",
+      modelNet:"Network error with the model — saving the raw transcript.",
+      saveErr:c=>"Error saving: HTTP "+c, saveNet:"Network error while saving.",
+      savedProto:"✅ Saved (protocol + transcript). ", savedRaw:"✅ Saved (raw transcript). ",
+      openNote:"Open note", findNote:"Find it in OpenWebUI → Notes.",
+      browserBad:"This browser does not support screen-audio capture. Use Chrome or Edge.",
+      modelsUnavail:c=>"(model list unavailable — HTTP "+c+")", modelsErr:"(model list error)",
+      prompt:"You are a meeting-minutes writer. From the transcript below, produce a clear, structured protocol. IMPORTANT: write it IN THE SAME LANGUAGE as the transcript (e.g. Lithuanian, English or Russian). Use sections: Participants (if identifiable), Topics discussed, Decisions, Action items (with owners and deadlines if mentioned). Be factual. Do not invent information that is not in the transcript. If the transcript is incomplete, note that.",
+      promptPh:"Leave empty — the selected model's own system prompt will be used.",
+      promptHint:"By default the protocol is produced by the selected model's own system prompt. Fill this only if you want to override it with your own instruction.",
+      fullTranscriptHdr:"Full transcript"
+    }
+  };
+  let ui = localStorage.getItem(LSK_UI) || (navigator.language && /^en/i.test(navigator.language) ? "en" : "lt");
+  if(ui!=="en" && ui!=="lt") ui="lt";
+  const t=(k,arg)=>{ const v=I18N[ui][k]; return (typeof v==="function")?v(arg):v; };
+
+  function applyI18n(){
+    document.documentElement.lang = ui;
+    document.title = t("appTitle").replace(/^🛡️\s*/,"");
+    $("i-appTitle").textContent=t("appTitle"); $("i-appSub").textContent=t("appSub");
+    $("i-lblTitle").textContent=t("lblTitle"); $("i-lblLang").textContent=t("lblLang");
+    $("i-lblNames").textContent=t("lblNames"); $("i-namesHint").textContent=t("namesHint");
+    $("lang").options[0].textContent=t("optAuto");
+    $("i-hintShare").textContent=t("hintShare");
+    $("i-lblMic").textContent=t("lblMic"); $("i-micHint").textContent=t("micHint"); loadMics();
+    startBtn.textContent=t("btnStart"); stopBtn.textContent=t("btnStop");
+    pauseBtn.textContent = paused ? t("btnResume") : t("btnPause");
+    $("i-lblSource").textContent=t("lblSource"); $("i-sourceHint").textContent=t("sourceHint");
+    $("urlBtn").textContent=t("btnUrl"); $("srcUrl").placeholder=t("urlPh");
+    $("i-lblTranscript").innerHTML=t("lblTranscript")+' <span style="font-weight:400;color:var(--muted)">'+t("transcriptNote")+'</span>';
+    ta.placeholder=t("taPlaceholder");
+    saveBtn.textContent=t("btnSave"); dlBtn.textContent=t("btnDownload"); retryBtn.textContent=t("btnRetry");
+    $("i-advanced").textContent=t("advanced");
+    $("i-lblModel").innerHTML=t("lblModel")+' <span style="font-weight:400;color:var(--muted)">'+t("modelNote")+'</span>';
+    $("i-lblPrompt").textContent=t("lblPrompt"); $("i-modelHint").textContent=t("modelHint");
+    $("prompt").placeholder=t("promptPh"); $("i-promptHint").textContent=t("promptHint");
+    if(!recording) stateEl.textContent=t("stReady");
+    const noneOpt=Array.from($("model").options).find(o=>o.value==="");
+    if(noneOpt && noneOpt.textContent.indexOf("…")===-1) noneOpt.textContent=t("modelNone");
+    $("ui-lt").classList.toggle("active",ui==="lt"); $("ui-en").classList.toggle("active",ui==="en");
+  }
+  function setUi(l){ if(l===ui) return; ui=l; localStorage.setItem(LSK_UI,ui); applyI18n(); }
+  $("ui-lt").onclick=()=>setUi("lt"); $("ui-en").onclick=()=>setUi("en");
+
+  (function(){ const d=new Date(), p=n=>String(n).padStart(2,"0");
+    $("title").value=t("defTitle")+` ${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; })();
+
+  function setStatus(m,k){ statusEl.textContent=m||""; statusEl.className="status"+(k?(" "+k):""); }
+  function setState(txt,c){ stateEl.textContent=txt; dot.className="dot"+(c?(" "+c):""); }
+  function authHeaders(extra){ return extra||{}; }   // session cookie authenticates (same-origin)
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const KEEP_TOKENS=" IMPORTANT: keep every GP_ token (e.g. GP_ab12cd34ef56) EXACTLY as-is — do not translate, change or remove them.";
+
+  // Reversible pseudonymisation: names/PII -> GP_ tokens before the LLM sees the
+  // text; restored to real values in the LLM's output. Audio stayed local; the
+  // (possibly external) LLM only ever gets tokens, yet the protocol keeps names.
+  async function gpMask(text){
+    try{ const fd=new FormData(); fd.append("text",text);
+      const r=await fetch("/_gp/mask",{method:"POST",credentials:"include",headers:authHeaders(),body:fd});
+      if(r.ok){ const j=await r.json(); return {masked:j.masked||text, mapId:j.map_id||""}; }
+    }catch(e){}
+    return {masked:text, mapId:""};
+  }
+  async function gpRestore(text, mapId){
+    if(!mapId) return text;
+    try{ const fd=new FormData(); fd.append("text",text); fd.append("map_id",mapId);
+      const r=await fetch("/_gp/restore",{method:"POST",credentials:"include",headers:authHeaders(),body:fd});
+      if(r.ok){ const j=await r.json(); return j.text||text; }
+    }catch(e){}
+    return text;
+  }
+
+  // ---- crash recovery: persist recorded chunks to IndexedDB every 3 s, so a
+  // tab crash / reload / network death mid-meeting does not lose the audio ----
+  const IDB_NAME="gp_protokolas", IDB_STORE="chunks";
+  function idbOpen(){ return new Promise((res,rej)=>{ const rq=indexedDB.open(IDB_NAME,1);
+    rq.onupgradeneeded=()=>rq.result.createObjectStore(IDB_STORE,{autoIncrement:true});
+    rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+  async function idbAdd(blob){ try{ const db=await idbOpen(); const tx=db.transaction(IDB_STORE,"readwrite");
+    tx.objectStore(IDB_STORE).add(blob); await new Promise(r=>{tx.oncomplete=r;tx.onerror=r;}); }catch(e){} }
+  async function idbGetAll(){ try{ const db=await idbOpen(); const tx=db.transaction(IDB_STORE,"readonly");
+    return await new Promise(res=>{ const rq=tx.objectStore(IDB_STORE).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>res([]); }); }catch(e){ return []; } }
+  async function idbClear(){ try{ localStorage.removeItem("gp_pk_rec_ts"); const db=await idbOpen(); const tx=db.transaction(IDB_STORE,"readwrite");
+    tx.objectStore(IDB_STORE).clear(); await new Promise(r=>{tx.oncomplete=r;tx.onerror=r;}); }catch(e){} }
+
+  async function checkRecovery(){
+    if(recording) return;
+    const ts=+(localStorage.getItem("gp_pk_rec_ts")||0);
+    if(ts && Date.now()-ts>864e5){ idbClear(); return; }   // drop abandoned recording after 24 h
+    const chunks=await idbGetAll();
+    if(!chunks.length) return;
+    fullBlob=new Blob(chunks, {type:MIME});
+    if(fullBlob.size<1500){ idbClear(); return; }
+    dlBtn.disabled=false; retryBtn.disabled=false;
+    setState(t("stDone"),"ok"); setStatus(t("recovered"),"err");
+  }
+
+  async function loadConfigAndModels(){
+    let cfg={};
+    try{ const r=await fetch("/_gp/protokolas.config.json",{cache:"no-store"}); if(r.ok) cfg=await r.json(); }catch(e){}
+    // Empty by default: the selected model's own system prompt builds the protocol.
+    // Only a user's explicit override (saved in this browser) pre-fills it.
+    $("prompt").value=localStorage.getItem(LSK_PROMPT)||"";
+    const sel=$("model"); let arr=[];
+    try{
+      const r=await fetch("/api/models",{credentials:"include",headers:authHeaders()});
+      if(r.ok){ const j=await r.json(); arr=(j&&(j.data||j))||[]; }
+      else { sel.innerHTML='<option value="">'+t("modelsUnavail",r.status)+'</option>'; return; }
+    }catch(e){ sel.innerHTML='<option value="">'+t("modelsErr")+'</option>'; return; }
+    sel.innerHTML="";
+    arr.forEach(m=>{ const o=document.createElement("option"); o.value=m.id; o.textContent=m.name||m.id; sel.appendChild(o); });
+    const none=document.createElement("option"); none.value=""; none.textContent=t("modelNone"); sel.appendChild(none);
+    const uo=localStorage.getItem(LSK_MODEL);
+    const matchCfg=cfg.defaultModel?arr.find(m=>m.id===cfg.defaultModel||(new RegExp(cfg.defaultModel,"i")).test(m.name||"")||(new RegExp(cfg.defaultModel,"i")).test(m.id||"")):null;
+    const matchKon=arr.find(m=>/konspekt/i.test(m.name||"")||/konspekt/i.test(m.id||""));
+    if(uo!==null&&(uo===""||arr.some(m=>m.id===uo))) sel.value=uo;
+    else if(matchCfg) sel.value=matchCfg.id; else if(matchKon) sel.value=matchKon.id;
+    sel.addEventListener("change",()=>localStorage.setItem(LSK_MODEL,sel.value));
+    $("prompt").addEventListener("change",()=>localStorage.setItem(LSK_PROMPT,$("prompt").value));
+  }
+
+  function tickTimer(){ const ms=baseMs+(segStart?Date.now()-segStart:0); const s=Math.floor(ms/1000);
+    timerEl.textContent=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
+  function startTimer(){ baseMs=0; segStart=Date.now(); timerInt=setInterval(tickTimer,500); tickTimer(); }
+  function pauseTimer(){ if(segStart){ baseMs+=Date.now()-segStart; segStart=0; } tickTimer(); }
+  function resumeTimer(){ segStart=Date.now(); }
+  function stopTimer(){ if(segStart){ baseMs+=Date.now()-segStart; segStart=0; } if(timerInt){ clearInterval(timerInt); timerInt=null; } }
+
+  function togglePause(){
+    if(!recording || !recorder) return;
+    if(!paused){
+      try{ recorder.pause(); }catch(e){ return; }
+      paused=true; pauseTimer(); setState(t("stPaused"));
+      pauseBtn.textContent=t("btnResume");
+      if(rafId){ cancelAnimationFrame(rafId); rafId=null; } meterFill.style.width="0%";
+    } else {
+      try{ recorder.resume(); }catch(e){}
+      paused=false; resumeTimer(); setState(t("stRec"),"rec");
+      pauseBtn.textContent=t("btnPause"); drawMeter();
+    }
+  }
+
+  function drawMeter(){
+    if(!analyser){ meterFill.style.width="0%"; return; }
+    const buf=new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf);
+    let sum=0; for(let i=0;i<buf.length;i++) sum+=buf[i]*buf[i];
+    const rms=Math.sqrt(sum/buf.length);
+    meterFill.style.width=Math.min(100, Math.round(rms*400))+"%";
+    rafId=requestAnimationFrame(drawMeter);
+  }
+
+  async function loadMics(){
+    if(!micSel || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try{
+      const devs=await navigator.mediaDevices.enumerateDevices();
+      const ins=devs.filter(d=>d.kind==="audioinput");
+      const cur=micSel.value || localStorage.getItem("gp_pk_mic") || "";
+      micSel.innerHTML="";
+      const def=document.createElement("option"); def.value=""; def.textContent=t("micDefault"); micSel.appendChild(def);
+      ins.forEach((d,i)=>{ const o=document.createElement("option"); o.value=d.deviceId;
+        o.textContent=d.label || ("Mic "+(i+1)); micSel.appendChild(o); });
+      if(cur && ins.some(d=>d.deviceId===cur)) micSel.value=cur;
+    }catch(e){}
+  }
+  if(micSel){
+    micSel.onchange=()=>{ try{ localStorage.setItem("gp_pk_mic", micSel.value); }catch(e){} };
+    if(navigator.mediaDevices && navigator.mediaDevices.addEventListener)
+      navigator.mediaDevices.addEventListener("devicechange", loadMics);
+  }
+
+  async function start(){
+    setStatus(""); saveStatus.textContent=""; ta.value=""; fullBlob=null; parts=[]; micWarn="";
+    saveBtn.disabled=true; dlBtn.disabled=true; retryBtn.disabled=true;
+    await idbClear();   // fresh recording session (drop any recovered leftovers)
+    localStorage.setItem("gp_pk_rec_ts", Date.now());
+    // System / tab audio is now OPTIONAL. For a physical-room meeting the sound comes
+    // from the ceiling mics via the room device (e.g. Poly Studio) on the MIC path, not
+    // from a shared window — so a cancelled share, or a share with no audio, must NOT
+    // abort: fall through to mic-only.
+    try{
+      sysStream=await navigator.mediaDevices.getDisplayMedia({ video:true, audio:true });
+      if(sysStream.getAudioTracks().length===0){ sysStream.getTracks().forEach(x=>x.stop()); sysStream=null; }
+    }catch(e){ sysStream=null; }
+    // Selected input device (pick the Poly Studio / ceiling-mic device for a room).
+    // echoCancellation / noiseSuppression / autoGainControl OFF: a room device does its
+    // own DSP, and the browser AEC — referenced to the wrong render device — gates or
+    // silences the ceiling mics. That is why only the laptop mic was ever recorded.
+    const micId=(micSel && micSel.value) ? {exact:micSel.value} : undefined;
+    try{ micStream=await navigator.mediaDevices.getUserMedia({ audio:{ deviceId:micId, echoCancellation:false, noiseSuppression:false, autoGainControl:false } }); }
+    catch(e){ micStream=null;
+      switch(e.name){ case "NotFoundError": micWarn=t("micNotFound"); break; case "NotAllowedError": micWarn=t("micNotAllowed"); break;
+        case "NotReadableError": micWarn=t("micBusy"); break; default: micWarn=t("micErr",e.name); } }
+
+    if(!sysStream && !micStream){ setStatus(t("noSource"),"err"); return; }
+    loadMics();   // permission just granted -> device labels are now readable, refresh picker
+
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    mixedDest=audioCtx.createMediaStreamDestination();
+    if(sysStream) audioCtx.createMediaStreamSource(sysStream).connect(mixedDest);
+    if(micStream) audioCtx.createMediaStreamSource(micStream).connect(mixedDest);
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=1024;
+    audioCtx.createMediaStreamSource(mixedDest.stream).connect(analyser);
+    if(sysStream) sysStream.getVideoTracks().forEach(x=> x.onended=()=>{ if(recording) stop(); });
+
+    const bitrate=128000;   // fixed high quality (selector removed)
+    try{ recorder=new MediaRecorder(mixedDest.stream, {mimeType:MIME, audioBitsPerSecond:bitrate}); }
+    catch(e){ try{ recorder=new MediaRecorder(mixedDest.stream); }catch(e2){ setStatus(t("recErr"),"err"); cleanup(); return; } }
+    recorder.ondataavailable=(e)=>{ if(e.data && e.data.size){ parts.push(e.data); idbAdd(e.data); } };
+    recorder.onstop=()=>{ fullBlob=new Blob(parts, {type:MIME}); dlBtn.disabled=!fullBlob.size; transcribeFull(); };
+    recorder.start(3000);   // flush every 3 s -> also persisted to IndexedDB for crash recovery
+
+    recording=true; paused=false; startBtn.disabled=true; stopBtn.disabled=false;
+    pauseBtn.disabled=false; pauseBtn.textContent=t("btnPause");
+    setState(t("stRec"),"rec"); startTimer(); drawMeter();
+    setStatus(micStream ? t("recording") : t("recordingNoMic",micWarn), micStream?"":"");
+  }
+
+  function cleanup(){
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; } meterFill.style.width="0%";
+    [sysStream,micStream].forEach(s=>{ if(s) s.getTracks().forEach(x=>x.stop()); });
+    if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx=null; }
+    sysStream=micStream=mixedDest=analyser=null;
+  }
+
+  function stop(){
+    if(!recording) return;
+    recording=false; stopTimer();
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; } meterFill.style.width="0%";
+    if(recorder && recorder.state!=="inactive"){ try{ recorder.stop(); }catch(e){} }  // -> onstop -> transcribeFull
+    [sysStream,micStream].forEach(s=>{ if(s) s.getTracks().forEach(x=>x.stop()); });
+    if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx=null; }
+    sysStream=micStream=mixedDest=analyser=null;
+    startBtn.disabled=false; stopBtn.disabled=true; pauseBtn.disabled=true; paused=false;
+    setState(t("stTranscribing"));
+  }
+
+  // Poll a transcription job to completion, then correct + fill the textarea.
+  async function pollJob(jobId){
+    const t0=Date.now();
+    for(;;){
+      await sleep(3000);
+      const secs=Math.round((Date.now()-t0)/1000);
+      statusEl.innerHTML='<span class="spin"></span>'+t("transcribingWait",secs);
+      let s;
+      try{ const rs=await fetch("/_gp/transcribe_status/"+jobId,{credentials:"include",headers:authHeaders()}); s=await rs.json(); }
+      catch(e){ continue; }   // transient — keep polling
+      if(s.status==="done"){
+        const raw=(s.text||"").trim();
+        idbClear();
+        // Do NOT show the raw local transcript. Send it straight to the model
+        // (mask names -> LLM -> restore) and reveal ONLY the corrected result.
+        if(raw){ await correctText(raw); }
+        else { ta.value=""; saveBtn.disabled=true; setState(t("stDone"),"ok"); setStatus(t("emptyRec"),"err"); }
+        return;
+      }
+      if(s.status==="error"){ setStatus(t("transcribeErr", s.error||""),"err"); setState(t("stDone")); return; }
+    }
+  }
+
+  async function uploadAndPoll(blob, name){
+    setBusy(true);
+    setState(t("stTranscribing")); statusEl.className="status"; statusEl.innerHTML='<span class="spin"></span>'+t("uploading");
+    try{
+      const fd=new FormData(); fd.append("file", blob, name); fd.append("language", $("lang").value); fd.append("hint", $("names").value||"");
+      const r=await fetch("/_gp/transcribe_full",{ method:"POST", credentials:"include", headers:authHeaders(), body:fd });
+      if(r.status===401||r.status===403){ setStatus(t("authFail"),"err"); return; }
+      if(!r.ok){ setStatus(t("transcribeErr","HTTP "+r.status),"err"); return; }
+      const j=await r.json();
+      if(!j.job_id){ setStatus(t("transcribeErr", j.error||"no job"),"err"); return; }
+      await pollJob(j.job_id);
+    }catch(e){ setStatus(t("transcribeErr","network"),"err"); setState(t("stDone")); }
+    finally{ setBusy(false); }
+  }
+
+  async function transcribeFull(){
+    if(!fullBlob || fullBlob.size<1500){ setStatus(t("emptyRec"),"err"); setState(t("stDone")); return; }
+    dlBtn.disabled=false; retryBtn.disabled=false;
+    await uploadAndPoll(fullBlob, "meeting.webm");
+  }
+
+  async function transcribeFile(file){
+    if(!file) return;
+    fullBlob=file; dlBtn.disabled=false; retryBtn.disabled=false;
+    // Do NOT touch the title — whatever is in "Protokolo pavadinimas" is what goes
+    // to OpenWebUI (auto-filled on open, freely editable by the user).
+    await uploadAndPoll(file, file.name||"audio");
+  }
+
+  async function transcribeUrl(){
+    const url=$("srcUrl").value.trim(); if(!url) return;
+    fullBlob=null;                       // URL source has no local blob
+    setBusy(true);
+    setState(t("stTranscribing")); statusEl.className="status"; statusEl.innerHTML='<span class="spin"></span>'+t("uploading");
+    try{
+      const fd=new FormData(); fd.append("url", url); fd.append("language", $("lang").value); fd.append("hint", $("names").value||"");
+      const r=await fetch("/_gp/transcribe_url",{ method:"POST", credentials:"include", headers:authHeaders(), body:fd });
+      if(r.status===401||r.status===403){ setStatus(t("authFail"),"err"); return; }
+      if(!r.ok){ setStatus(t("transcribeErr","HTTP "+r.status),"err"); return; }
+      const j=await r.json();
+      if(!j.job_id){ setStatus(t("transcribeErr", j.error||"no job"),"err"); return; }
+      await pollJob(j.job_id);
+    }catch(e){ setStatus(t("transcribeErr","network"),"err"); setState(t("stDone")); }
+    finally{ setBusy(false); }
+  }
+
+  function download(){
+    if(!fullBlob) return;
+    const url=URL.createObjectURL(fullBlob);
+    const a=document.createElement("a");
+    a.href=url; a.download=($("title").value.trim()||"protokolas").replace(/[^\w.-]+/g,"_")+".webm";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }
+
+  // LLM error-correction of the raw local transcript (fixes Whisper's Lithuanian
+  // mistakes from context). Runs through the selected model = via gp-pipeline
+  // anonymization, so only masked text leaves; the audio never did.
+  // Send the (unshown) raw transcript to the model: /_gp/llm masks names -> GP_
+  // tokens before the LLM sees the text, then restores real names + adds caps/
+  // punctuation. We reveal ONLY the corrected result; the raw local transcript is
+  // never displayed. On any LLM failure we fall back to showing the raw so nothing
+  // is lost. The audio never leaves — only the masked text does.
+  async function correctText(raw){
+    raw=((raw!==undefined?raw:ta.value)||"").trim();
+    if(!raw){ ta.value=""; saveBtn.disabled=true; setState(t("stDone"),"ok"); setStatus(t("emptyRec"),"err"); return; }
+    saveBtn.disabled=true;
+    setState(t("stTranscribing")); statusEl.className="status"; statusEl.innerHTML='<span class="spin"></span>'+t("correcting");
+    let outText=raw;
+    try{
+      // model="" on purpose: correction must be a NEUTRAL ASR fix. Passing the
+      // selected protocol model would apply ITS system prompt (e.g. a summariser),
+      // turning the fix into a summary. The engine default (strong general model)
+      // handles correction; the chosen model is only used at Save (protocol).
+      const fd=new FormData(); fd.append("prompt",t("correctionPrompt")); fd.append("text",raw); fd.append("model","");
+      const r=await fetch("/_gp/llm",{ method:"POST", credentials:"include", headers:authHeaders(), body:fd });
+      if(r.ok){ const j=await r.json(); if(j.text && j.text.trim()) outText=j.text.trim(); }
+    }catch(e){ /* fall back to raw */ }
+    ta.value=outText;
+    setState(t("stDone"),"ok"); setStatus(t("finishedReview"),"good");
+    saveBtn.disabled=!ta.value;
+  }
+
+  // Upload the meeting audio to OpenWebUI's file store and return a note file-item
+  // so the recording is attached to the note (never lost). ?process=false skips
+  // RAG/content extraction — we only want the file stored + linked. Audio stays
+  // on-prem (OpenWebUI storage). Returns null on failure (note still saves).
+  async function uploadRecording(){
+    if(!fullBlob || !fullBlob.size) return null;
+    try{
+      const name=($("title").value.trim()||"protokolas").replace(/[^\w.-]+/g,"_")+".webm";
+      const fd=new FormData(); fd.append("file", fullBlob, name);
+      const r=await fetch("/api/v1/files/?process=false",{ method:"POST", credentials:"include", headers:authHeaders(), body:fd });
+      if(!r.ok) return null;
+      const f=await r.json();
+      const uid=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
+      return { type:"file", file:f, id:f.id, url:"/api/v1/files/"+f.id, name:(f.filename||name),
+               collection_name:"", status:"uploaded", size:fullBlob.size, error:"", itemId:uid };
+    }catch(e){ return null; }
+  }
+
+  // Convert our markdown to a ProseMirror/TipTap doc for note.data.content.json.
+  // OpenWebUI's collaborative note editor DUPLICATES the whole note when opened if
+  // content.json is null (it seeds the doc from the markdown twice). UI-native notes
+  // always carry json, so we build one too — headings, bullet lists, hr, paragraphs.
+  function mdToProseMirror(md){
+    const lines=(md||"").replace(/\r/g,"").split("\n");
+    const inline=(s)=>{                          // parse **bold** and [text](url) into ProseMirror marks
+      s=s||""; const nodes=[]; let last=0, mm;
+      const re=/\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)]+)\)/g;
+      while(mm=re.exec(s)){
+        if(mm.index>last){ const tx=s.slice(last,mm.index); if(tx) nodes.push({type:"text",text:tx}); }
+        if(mm[1]!==undefined){ nodes.push({type:"text",text:mm[1],marks:[{type:"bold"}]}); }
+        else { nodes.push({type:"text",text:mm[2],marks:[{type:"link",attrs:{href:mm[3]}}]}); }
+        last=re.lastIndex;
+      }
+      const tail=s.slice(last); if(tail) nodes.push({type:"text",text:tail});
+      return nodes;
+    };
+    const out=[]; let i=0;
+    while(i<lines.length){
+      const ln=lines[i]; let m;
+      if(/^\s*$/.test(ln)){ i++; continue; }
+      if(m=ln.match(/^(#{1,6})\s+(.*)$/)){ out.push({type:"heading",attrs:{level:m[1].length},content:inline(m[2].trim())}); i++; continue; }
+      if(/^\s*(---|\*\*\*|___)\s*$/.test(ln)){ out.push({type:"horizontalRule"}); i++; continue; }
+      if(/^\s*[-*]\s+/.test(ln)){
+        const items=[];
+        while(i<lines.length && /^\s*[-*]\s+/.test(lines[i])){
+          items.push({type:"listItem",content:[{type:"paragraph",content:inline(lines[i].replace(/^\s*[-*]\s+/,"").trim())}]}); i++;
+        }
+        out.push({type:"bulletList",content:items}); continue;
+      }
+      out.push({type:"paragraph",content:inline(ln.trim())}); i++;
+    }
+    if(!out.length) out.push({type:"paragraph"});
+    return {type:"doc",content:out};
+  }
+
+  async function save(){
+    const title=$("title").value.trim()||t("defTitle");
+    const raw=ta.value.trim();
+    if(!raw){ saveStatus.textContent=t("nothingSave"); saveStatus.className="status err"; return; }
+    setBusy(true);
+    let out=raw, usedModel=false;
+    saveStatus.textContent=t("buildingProto"); saveStatus.className="status";
+    try{
+      // 1) build the protocol: /_gp/llm reversible-mask -> LLM (bypasses gp-pipeline) -> restore.
+      try{
+        const fd=new FormData(); fd.append("prompt",$("prompt").value.trim()); fd.append("text",raw); fd.append("model",$("model").value);
+        const r=await fetch("/_gp/llm",{ method:"POST", credentials:"include", headers:authHeaders(), body:fd });
+        if(r.status===401||r.status===403){ saveStatus.textContent=t("authFail"); saveStatus.className="status err"; return; }
+        if(r.ok){ const j=await r.json(); if(j.text&&j.text.trim()){ out=j.text.trim(); usedModel=true; } else saveStatus.textContent=t("modelEmpty"); }
+        else saveStatus.textContent=t("modelErr",r.status);
+      }catch(e){ saveStatus.textContent=t("modelNet"); }
+      let md=usedModel ? (out+"\n\n---\n\n## "+t("fullTranscriptHdr")+"\n\n"+raw) : raw;
+      // 2) attach the recording so it is preserved alongside the protocol.
+      saveStatus.textContent=t("attachingRec"); saveStatus.className="status";
+      const fileItem=await uploadRecording();
+      // OpenWebUI's note viewer does NOT render data.files as a playable/visible
+      // attachment (it's a custom field we set for preservation + uploads-cleaner
+      // protection). So also drop a clickable link to the recording INTO the note
+      // body — otherwise the audio is stored but invisible to the user ("it didn't
+      // attach"). /api/v1/files/<id>/content is the OpenWebUI download endpoint,
+      // cookie-authed same-origin.
+      if(fileItem && fileItem.id){
+        md += "\n\n---\n\n🔊 [Įrašas / Recording](/api/v1/files/"+fileItem.id+"/content)";
+      }
+      // 3) create the note.
+      const r=await fetch("/api/v1/notes/create",{ method:"POST", credentials:"include",
+        headers:authHeaders({"Content-Type":"application/json"}),
+        body:JSON.stringify({ title, data:{ content:{ md:md, html:"", json:mdToProseMirror(md) }, versions:[], files:(fileItem?[fileItem]:null) } }) });
+      if(r.status===401||r.status===403){ saveStatus.textContent=t("authFail"); saveStatus.className="status err"; return; }
+      if(!r.ok){ saveStatus.textContent=t("saveErr",r.status); saveStatus.className="status err"; return; }
+      const j=await r.json(); const id=j&&(j.id||(j.data&&j.data.id));
+      saveStatus.innerHTML=(usedModel?t("savedProto"):t("savedRaw"))+(id?'<a href="/notes/'+id+'" target="_blank">'+t("openNote")+'</a>':t("findNote"));
+      saveStatus.className="status good";
+    }catch(e){ saveStatus.textContent=t("saveNet"); saveStatus.className="status err"; }
+    finally{ setBusy(false); }
+  }
+
+  startBtn.onclick=start; stopBtn.onclick=stop; pauseBtn.onclick=togglePause; saveBtn.onclick=save; dlBtn.onclick=download;
+  $("fileInput").onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; if(f) transcribeFile(f); };
+  $("urlBtn").onclick=transcribeUrl;
+  retryBtn.onclick=()=>{ if(fullBlob) transcribeFull(); };
+
+  // Warn before closing/reloading while a recording is in progress.
+  window.addEventListener("beforeunload", e=>{ if(recording){ e.preventDefault(); e.returnValue=""; } });
+
+  applyI18n();
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
+    setStatus(t("browserBad"),"err"); startBtn.disabled=true;
+  }
+  loadConfigAndModels();
+  checkRecovery();   // offer to recover an interrupted recording from a prior crash
+})();
+</script>
+</body>
+</html>
